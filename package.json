@@ -1,0 +1,26 @@
+{
+  "name": "thewall",
+  "version": "1.0.0",
+  "description": "TheWall image slideshow application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "jest",
+    "test:e2e": "playwright test --workers=1",
+    "test:unit": "jest",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.24.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.10.0",
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
+}
