@@ -13,7 +13,8 @@ class TheWall {
 
     this.imageElement = document.getElementById('current-image');
     this.attributionElement = document.getElementById('attribution');
-    this.attributionContent = document.getElementById('attribution-content');
+    this.attributionPhotographer = document.getElementById('attribution-photographer');
+    this.attributionDetails = document.getElementById('attribution-details');
     this.offlineIndicator = document.getElementById('offline-indicator');
 
     this.init();
@@ -95,15 +96,26 @@ class TheWall {
     if (this.metadata.length === 0) return;
     const image = this.metadata[this.currentIndex];
     this.log('VERBOSE', `Displaying image ${this.currentIndex}: ${image.url}`);
-    this.imageElement.src = image.url;
-    this.imageElement.onload = () => {
-      // Image loaded successfully
-    };
-    this.imageElement.onerror = () => {
-      this.offline = true;
-      this.updateOfflineIndicator();
-    };
+    
+    // Fade out current image
+    this.imageElement.classList.add('fade-out');
+    
+    // Wait for fade out, then change image
+    setTimeout(() => {
+      this.imageElement.src = image.url;
+      this.imageElement.onload = () => {
+        // Fade in new image
+        this.imageElement.classList.remove('fade-out');
+      };
+      this.imageElement.onerror = () => {
+        this.offline = true;
+        this.updateOfflineIndicator();
+        this.imageElement.classList.remove('fade-out');
+      };
+    }, 400); // A bit sooner than half of the 1s transition
+    
     document.body.style.backgroundColor = image.color || '#000';
+    
     // Check connectivity
     fetch('/api/ping').then(() => {
       // If was offline and not manual, set back online
@@ -149,19 +161,34 @@ class TheWall {
       this.attributionElement.classList.add('hidden');
       return;
     }
-    let content = `Photo by <a href="${image.user.href}" target="_blank">${image.user.name}</a>`;
+    
+    // Build photographer name with link
+    const photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    this.attributionPhotographer.innerHTML = photographerHTML;
+    
+    // Build details (location and date)
+    let details = [];
     if (image.location && image.location.name) {
-      content += ` in ${image.location.name}`;
+      details.push(`<span class="attribution-location">${image.location.name}</span>`);
     }
     if (image.created_at) {
-      content += ` on ${new Date(image.created_at).toLocaleDateString()}`;
+      const date = new Date(image.created_at);
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+      details.push(formattedDate);
     }
-    this.attributionContent.innerHTML = content;
+    this.attributionDetails.innerHTML = details.join(' · ');
+    
+    // Show attribution with animation
     this.attributionElement.classList.remove('hidden');
+    
+    // Auto-hide after 5 seconds
     if (this.attributionTimeout) clearTimeout(this.attributionTimeout);
     this.attributionTimeout = setTimeout(() => {
       this.attributionElement.classList.add('hidden');
-    }, 4000);
+    }, 5000);
   }
 
   toggleAttribution() {
@@ -170,7 +197,7 @@ class TheWall {
       if (this.attributionTimeout) clearTimeout(this.attributionTimeout);
       this.attributionTimeout = setTimeout(() => {
         this.attributionElement.classList.add('hidden');
-      }, 4000);
+      }, 5000);
     }
   }
 
