@@ -11,12 +11,14 @@ class TheWall {
     this.attributionShowTimeout = null;
     this.attributionHideTimeout = null;
     this.imageInterval = 30; // seconds
+    this.firstImageLoaded = false;
 
     this.imageElement = document.getElementById('current-image');
     this.attributionElement = document.getElementById('attribution');
     this.attributionPhotographer = document.getElementById('attribution-photographer');
     this.attributionDetails = document.getElementById('attribution-details');
     this.offlineIndicator = document.getElementById('offline-indicator');
+    this.loadingScreen = document.getElementById('loading-screen');
 
     this.init();
   }
@@ -109,6 +111,16 @@ class TheWall {
       this.imageElement.src = image.url;
       this.imageElement.onload = () => {
         console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
+        
+        // Hide loading screen on first image load
+        if (!this.firstImageLoaded) {
+          this.firstImageLoaded = true;
+          this.loadingScreen.classList.add('fade-out');
+          setTimeout(() => {
+            this.loadingScreen.style.display = 'none';
+          }, 800); // Match the CSS transition duration
+        }
+        
         // Fade in new image
         this.imageElement.classList.remove('fade-out');
         // Schedule attribution to show after 5 seconds

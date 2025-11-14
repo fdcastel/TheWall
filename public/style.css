@@ -8,6 +8,51 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Loading screen */
+#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.8s ease-out;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-icon {
+  width: 75vmin;
+  height: 75vmin;
+  color: #fff;
+  filter: drop-shadow(0 0 40px rgba(255, 255, 255, 0.3))
+          drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5))
+          drop-shadow(0 -4px 8px rgba(255, 255, 255, 0.1));
+  animation: subtleFloat 4s ease-in-out infinite;
+}
+
+@keyframes subtleFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 40px rgba(255, 255, 255, 0.3))
+            drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5))
+            drop-shadow(0 -4px 8px rgba(255, 255, 255, 0.1));
+  }
+  50% {
+    transform: translateY(-10px) scale(1.02);
+    filter: drop-shadow(0 0 50px rgba(255, 255, 255, 0.4))
+            drop-shadow(0 12px 20px rgba(0, 0, 0, 0.6))
+            drop-shadow(0 -6px 12px rgba(255, 255, 255, 0.15));
+  }
+}
+
 #image-container {
   position: fixed;
   top: 0;

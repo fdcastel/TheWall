@@ -205,6 +205,12 @@ fastify.get('/app.js', async (request, reply) => {
   reply.send(fs.readFileSync(filePath, 'utf8'));
 });
 
+fastify.get('/img/thewall-icon.svg', async (request, reply) => {
+  const filePath = path.join(__dirname, 'img', 'thewall-icon.svg');
+  reply.header('Content-Type', 'image/svg+xml');
+  reply.send(fs.readFileSync(filePath, 'utf8'));
+});
+
 // Ping endpoint for connectivity checks
 fastify.get('/api/ping', async (request, reply) => {
   reply.send({ status: 'ok' });
