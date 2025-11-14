@@ -21,12 +21,8 @@ class TheWall {
     this.init();
   }
 
-  log(level, message) {
-    console.log(`[${level}] ${new Date().toISOString()}: ${message}`);
-  }
-
   async init() {
-    this.log('INFO', 'Initializing TheWall');
+    console.log('Initializing TheWall');
     await this.loadMetadata();
     this.setupEventListeners();
     this.startAutoAdvance();
@@ -34,17 +30,17 @@ class TheWall {
   }
 
   async loadMetadata(count = 30) {
-    this.log('INFO', 'Loading metadata');
+    console.log('Loading metadata');
     try {
       const response = await fetch(`/api/images/metadata?count=${count}`);
       if (!response.ok) throw new Error('Failed to load metadata');
       const data = await response.json();
       this.metadata = data.images;
-      this.log('VERBOSE', `Loaded ${this.metadata.length} metadata items`);
+      console.log(`Loaded ${this.metadata.length} metadata items`);
       this.offline = false;
       this.updateOfflineIndicator();
     } catch (err) {
-      this.log('INFO', `Metadata load failed: ${err.message}`);
+      console.error(`Metadata load failed: ${err.message}`);
       this.offline = true;
       this.updateOfflineIndicator();
     }
@@ -96,7 +92,7 @@ class TheWall {
   displayImage() {
     if (this.metadata.length === 0) return;
     const image = this.metadata[this.currentIndex];
-    this.log('VERBOSE', `Displaying image ${this.currentIndex}: ${image.url}`);
+    console.log(`Displaying image ${this.currentIndex}: ${image.url}`);
     
     // Hide attribution immediately when changing images
     this.attributionElement.classList.add('hidden');
@@ -112,12 +108,14 @@ class TheWall {
     setTimeout(() => {
       this.imageElement.src = image.url;
       this.imageElement.onload = () => {
+        console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
         // Fade in new image
         this.imageElement.classList.remove('fade-out');
         // Schedule attribution to show after 5 seconds
         this.scheduleAttribution(image);
       };
       this.imageElement.onerror = () => {
+        console.error(`Image load failed ${this.currentIndex}: ${image.url}`);
         this.offline = true;
         this.updateOfflineIndicator();
         this.imageElement.classList.remove('fade-out');
@@ -130,6 +128,7 @@ class TheWall {
     fetch('/api/ping').then(() => {
       // If was offline and not manual, set back online
       if (this.offline && !this.manualOffline) {
+        console.log('Server connectivity restored - exiting offline mode');
         this.offline = false;
         this.updateOfflineIndicator();
         this.offlineImages = null;
@@ -137,6 +136,7 @@ class TheWall {
       }
     }).catch(() => {
       if (!this.offline) {
+        console.warn('Server connectivity lost - entering offline mode');
         this.toggleOffline();
         this.manualOffline = false;
       }
@@ -151,15 +151,15 @@ class TheWall {
 
   async loadMoreMetadata() {
     const nextStart = this.metadata.length;
-    this.log('INFO', `Loading more metadata starting from ${nextStart}`);
+    console.log(`Loading more metadata starting from ${nextStart}`);
     try {
       const response = await fetch(`/api/images/metadata?count=30&start=${nextStart}`);
       if (!response.ok) throw new Error('Failed to load more metadata');
       const data = await response.json();
       this.metadata.push(...data.images);
-      this.log('VERBOSE', `Loaded additional ${data.images.length} metadata items, total: ${this.metadata.length}`);
+      console.log(`Loaded additional ${data.images.length} metadata items, total: ${this.metadata.length}`);
     } catch (err) {
-      this.log('INFO', `Load more metadata failed: ${err.message}`);
+      console.error(`Load more metadata failed: ${err.message}`);
       this.offline = true;
       this.updateOfflineIndicator();
     }
@@ -247,8 +247,10 @@ class TheWall {
 
   updateOfflineIndicator() {
     if (this.offline) {
+      console.log('Entering offline mode');
       this.offlineIndicator.classList.remove('hidden');
     } else {
+      console.log('Exiting offline mode');
       this.offlineIndicator.classList.add('hidden');
     }
   }
@@ -256,16 +258,18 @@ class TheWall {
   toggleOffline() {
     this.offline = !this.offline;
     this.manualOffline = true;
-    this.log('VERBOSE', `Offline mode: ${this.offline}`);
+    console.log(`Manual offline toggle - offline mode: ${this.offline}`);
     if (this.offline) {
       // When going offline, cycle through currently prefetched images
       this.offlineImages = Array.from(this.prefetched).sort((a, b) => a - b);
+      console.log(`Offline mode activated - ${this.offlineImages.length} prefetched images available: [${this.offlineImages.join(', ')}]`);
       this.currentOfflineIndex = this.offlineImages.indexOf(this.currentIndex);
       if (this.currentOfflineIndex === -1) {
         this.currentOfflineIndex = 0;
         this.currentIndex = this.offlineImages[0] || 0;
       }
     } else {
+      console.log('Offline mode deactivated');
       this.offlineImages = null;
       this.currentOfflineIndex = null;
     }
@@ -277,10 +281,10 @@ class TheWall {
     if (this.offline && this.offlineImages) {
       this.currentOfflineIndex = (this.currentOfflineIndex + 1) % this.offlineImages.length;
       this.currentIndex = this.offlineImages[this.currentOfflineIndex];
-      this.log('VERBOSE', `Next offline image: ${this.currentIndex}`);
+      console.log(`Next image (offline): ${this.currentIndex}`);
     } else {
       this.currentIndex = (this.currentIndex + 1) % this.metadata.length;
-      this.log('VERBOSE', `Next image: ${this.currentIndex}`);
+      console.log(`Next image: ${this.currentIndex}`);
     }
     this.displayImage();
     this.resetAutoAdvance();
@@ -291,10 +295,10 @@ class TheWall {
     if (this.offline && this.offlineImages) {
       this.currentOfflineIndex = (this.currentOfflineIndex - 1 + this.offlineImages.length) % this.offlineImages.length;
       this.currentIndex = this.offlineImages[this.currentOfflineIndex];
-      this.log('VERBOSE', `Previous offline image: ${this.currentIndex}`);
+      console.log(`Previous image (offline): ${this.currentIndex}`);
     } else {
       this.currentIndex = (this.currentIndex - 1 + this.metadata.length) % this.metadata.length;
-      this.log('VERBOSE', `Previous image: ${this.currentIndex}`);
+      console.log(`Previous image: ${this.currentIndex}`);
     }
     this.displayImage();
     this.resetAutoAdvance();
@@ -308,9 +312,15 @@ class TheWall {
       if (this.prefetched.has(index)) continue;
       const image = this.metadata[index];
       const img = new Image();
+      img.onload = () => {
+        console.log(`Image prefetched successfully ${index}: ${image.url}`);
+      };
+      img.onerror = () => {
+        console.warn(`Image prefetch failed ${index}: ${image.url}`);
+      };
       img.src = image.url;
       this.prefetched.add(index);
-      this.log('VERBOSE', `Prefetched image ${index}`);
+      console.log(`Prefetching image ${index}: ${image.url}`);
     }
   }
 }
