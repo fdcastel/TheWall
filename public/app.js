@@ -8,7 +8,8 @@ class TheWall {
     this.offline = false;
     this.manualOffline = false;
     this.autoAdvanceInterval = null;
-    this.attributionTimeout = null;
+    this.attributionShowTimeout = null;
+    this.attributionHideTimeout = null;
     this.imageInterval = 30; // seconds
 
     this.imageElement = document.getElementById('current-image');
@@ -97,6 +98,13 @@ class TheWall {
     const image = this.metadata[this.currentIndex];
     this.log('VERBOSE', `Displaying image ${this.currentIndex}: ${image.url}`);
     
+    // Hide attribution immediately when changing images
+    this.attributionElement.classList.add('hidden');
+    
+    // Clear any pending attribution timeouts
+    if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
+    if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+    
     // Fade out current image
     this.imageElement.classList.add('fade-out');
     
@@ -106,6 +114,8 @@ class TheWall {
       this.imageElement.onload = () => {
         // Fade in new image
         this.imageElement.classList.remove('fade-out');
+        // Schedule attribution to show after 5 seconds
+        this.scheduleAttribution(image);
       };
       this.imageElement.onerror = () => {
         this.offline = true;
@@ -132,7 +142,6 @@ class TheWall {
       }
     });
     this.prefetchImages();
-    this.showAttribution(image);
 
     // Fetch more metadata if nearing the end
     if (!this.offline && this.currentIndex >= this.metadata.length - 3 && this.metadata.length < 47) { // assuming max 47
@@ -154,6 +163,41 @@ class TheWall {
       this.offline = true;
       this.updateOfflineIndicator();
     }
+  }
+
+  scheduleAttribution(image) {
+    if (!image.user || !image.user.name) {
+      return;
+    }
+    
+    // Build photographer name with link
+    const photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    this.attributionPhotographer.innerHTML = photographerHTML;
+    
+    // Build details (location and date)
+    let details = [];
+    if (image.location && image.location.name) {
+      details.push(`<span class="attribution-location">${image.location.name}</span>`);
+    }
+    if (image.created_at) {
+      const date = new Date(image.created_at);
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+      details.push(formattedDate);
+    }
+    this.attributionDetails.innerHTML = details.join(' · ');
+    
+    // Show attribution after 5 seconds
+    this.attributionShowTimeout = setTimeout(() => {
+      this.attributionElement.classList.remove('hidden');
+      
+      // Hide attribution 5 seconds after showing
+      this.attributionHideTimeout = setTimeout(() => {
+        this.attributionElement.classList.add('hidden');
+      }, 5000);
+    }, 5000);
   }
 
   showAttribution(image) {
@@ -185,8 +229,8 @@ class TheWall {
     this.attributionElement.classList.remove('hidden');
     
     // Auto-hide after 5 seconds
-    if (this.attributionTimeout) clearTimeout(this.attributionTimeout);
-    this.attributionTimeout = setTimeout(() => {
+    if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+    this.attributionHideTimeout = setTimeout(() => {
       this.attributionElement.classList.add('hidden');
     }, 5000);
   }
@@ -194,8 +238,8 @@ class TheWall {
   toggleAttribution() {
     this.attributionElement.classList.toggle('hidden');
     if (!this.attributionElement.classList.contains('hidden')) {
-      if (this.attributionTimeout) clearTimeout(this.attributionTimeout);
-      this.attributionTimeout = setTimeout(() => {
+      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+      this.attributionHideTimeout = setTimeout(() => {
         this.attributionElement.classList.add('hidden');
       }, 5000);
     }
