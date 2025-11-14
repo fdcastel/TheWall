@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  thewall:
+    build: .
+    image: thewall:latest
+    container_name: thewall
+    ports:
+      - "3000:3000"
+    environment:
+      # Provider: 'unsplash', 'pexels', or 'local'
+      THEWALL_PROVIDER: unsplash
+      
+      # Unsplash configuration
+      # Get your access key at: https://unsplash.com/developers
+      UNSPLASH_ACCESS_KEY: your_unsplash_access_key_here
+      
+      # Pexels configuration (alternative to Unsplash)
+      # Get your API key at: https://www.pexels.com/api/
+      # PEXELS_API_KEY: your_pexels_api_key_here
+      
+      # Local provider configuration
+      # THEWALL_LOCAL_FOLDER: /app/samples
+      
+      # Common settings
+      THEWALL_IMAGE_INTERVAL: 30
+      THEWALL_IMAGE_QUERY: nature
+      PORT: 3000

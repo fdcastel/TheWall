@@ -1,0 +1,73 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# Tagging policy and notes
+# - This workflow uses `docker/metadata-action@v5` to compute image tags and labels.
+# - Tagging policy:
+#   * Pushes to `master` (the default branch) will publish an `edge` image tag.
+#   * Pushes of semver tags (e.g. `v1.2.3`) will publish semver tags (v1.2.3, v1.2, v1)
+#     and also publish a `latest` tag pointing to the most-recent release.
+#   * Branch and PR refs are emitted as ref-based tags for CI/debugging.
+# - See the metadata-action docs for supported template flags and examples:
+#   https://github.com/docker/metadata-action
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # publish an "edge" tag for the default branch (master)
+            type=raw,value=edge,enable={{is_default_branch}}
+            # publish "latest" for semver-tagged releases (vX.Y.Z)
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
