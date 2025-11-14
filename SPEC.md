@@ -27,17 +27,18 @@ Images are displayed with smooth transitions, attribution information, and have 
 - Navigation should work in both online and offline modes
 
 ### Attribution Display
-- Attribution information should appear as an overlay in the bottom-left corner
+- Attribution information should appear as an overlay in the bottom-left and bottom-right corner (alternated)
 - Attribution should include photographer name (linked to their profile)
 - Attribution should include location and creation date when available
-- Attribution overlay should auto-hide after 4 seconds
+- Attribution overlay should be shown after 5 seconds the image being displayed
+- Attribution overlay should auto-hide after 5 seconds the attribution being displayed
 - Users can toggle attribution visibility manually
 - Attribution should be hidden if no photographer information is available
 
 ### Offline Mode
 - Application should detect when it cannot fetch new images
 - In offline mode, display an "OFFLINE" indicator in the top-right corner
-- Offline mode should cycle through previously prefetched images
+- Offline mode should cycle through previously prefetched images (locally available in the browser cache)
 - Navigation should work within the offline image set
 - Offline mode should be toggleable by user
 - Offline detection occurs when image fetches fail (e.g., during prefetching or display loading), as this happens more frequently than metadata fetches. Metadata fetch failures may also trigger offline mode as a fallback.
@@ -49,7 +50,10 @@ Images are displayed with smooth transitions, attribution information, and have 
 - As the user navigates forward, maintain at least 3 prefetched images ahead of the current display
 - When nearing the end of the current metadata batch (e.g., displaying image 28), fetch the next batch of 30 metadata (indices 30-59) and continue prefetching
 - Prefetching should not occur in offline mode; instead, cycle through previously prefetched images
-- Prefetching works by programmatically creating `<img>` elements in the DOM with the image URLs, forcing the browser to download and cache them via HTTP. This differs from metadata fetching, which retrieves JSON data (e.g., 30 items at a time) without downloading the actual image files. Metadata is lightweight and fetched in batches to populate the image list, while images are prefetched individually (current + 3 ahead) for instant display.
+- Prefetching works by programmatically creating `<img>` elements in the DOM with the image URLs, forcing the browser to download and cache them via HTTP. 
+  - This differs from metadata fetching, which retrieves JSON data (e.g., 30 items at a time) without downloading the actual image files. 
+  - Metadata is lightweight and fetched in batches to populate the image list, while images are prefetched individually (current + 3 ahead) for instant display.
+  - The Metadata API is rate-limited, while the image endpoints are not. That’s why we request a batch of 30 images per API call. For instance, the Unsplash API limits requests to 50 calls per hour.
 
 ## User Interface
 
@@ -68,8 +72,8 @@ Images are displayed with smooth transitions, attribution information, and have 
 ### Visual Design
 - Clean, minimal interface
 - Attribution card with semi-transparent black background
-- White text on dark background for attribution
-- Subtle offline indicator with reduced opacity
+- Subtler offline indicator
+- The application needs to run on both totems and TVs, so the text must remain readable from a reasonable distance without being so large that it distracts from the images.
 - Smooth transitions and animations (using CSS)
 
 ## Data Sources
