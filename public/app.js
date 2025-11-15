@@ -10,7 +10,9 @@ class TheWall {
     this.autoAdvanceInterval = null;
     this.attributionShowTimeout = null;
     this.attributionHideTimeout = null;
-    this.imageInterval = 30; // seconds
+    this.imageInterval = 30; // seconds (default, will be overridden by config)
+    this.provider = 'local'; // default, will be overridden by config
+    this.imageQuery = 'nature'; // default, will be overridden by config
     this.firstImageLoaded = false;
 
     this.imageElement = document.getElementById('current-image');
@@ -25,10 +27,27 @@ class TheWall {
 
   async init() {
     console.log('Initializing TheWall');
+    await this.loadConfig();
     await this.loadMetadata();
     this.setupEventListeners();
     this.startAutoAdvance();
     this.displayImage();
+  }
+
+  async loadConfig() {
+    console.log('Loading configuration');
+    try {
+      const response = await fetch('/api/config');
+      if (!response.ok) throw new Error('Failed to load config');
+      const config = await response.json();
+      this.provider = config.provider;
+      this.imageInterval = config.imageInterval;
+      this.imageQuery = config.imageQuery;
+      console.log(`Config loaded: provider=${this.provider}, interval=${this.imageInterval}s, query=${this.imageQuery}`);
+    } catch (err) {
+      console.error(`Config load failed: ${err.message}`);
+      // Use defaults already set in constructor
+    }
   }
 
   async loadMetadata(count = 30) {
@@ -182,8 +201,16 @@ class TheWall {
       return;
     }
     
-    // Build photographer name with link
-    const photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    // Build photographer name with link and provider attribution
+    let photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    
+    // Add provider attribution for Unsplash and Pexels
+    if (this.provider === 'unsplash') {
+      photographerHTML += ` <span class="provider-attribution">on <a href="https://unsplash.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></span>`;
+    } else if (this.provider === 'pexels') {
+      photographerHTML += ` <span class="provider-attribution">on <a href="https://www.pexels.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Pexels</a></span>`;
+    }
+    
     this.attributionPhotographer.innerHTML = photographerHTML;
     
     // Build details (location and date)
@@ -218,8 +245,16 @@ class TheWall {
       return;
     }
     
-    // Build photographer name with link
-    const photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    // Build photographer name with link and provider attribution
+    let photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    
+    // Add provider attribution for Unsplash and Pexels
+    if (this.provider === 'unsplash') {
+      photographerHTML += ` <span class="provider-attribution">on <a href="https://unsplash.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></span>`;
+    } else if (this.provider === 'pexels') {
+      photographerHTML += ` <span class="provider-attribution">on <a href="https://www.pexels.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Pexels</a></span>`;
+    }
+    
     this.attributionPhotographer.innerHTML = photographerHTML;
     
     // Build details (location and date)

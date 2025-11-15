@@ -7,8 +7,8 @@ const https = require('https');
 // Environment variables
 const PROVIDER = process.env.THEWALL_PROVIDER || 'local';
 const LOCAL_FOLDER = process.env.THEWALL_LOCAL_FOLDER || './samples';
-const IMAGE_INTERVAL = parseInt(process.env.THEWALL_IMAGE_INTERVAL) || 30;    // TODO: Pass to client
-const IMAGE_QUERY = process.env.THEWALL_IMAGE_QUERY || 'nature';    // TODO: Pass to client
+const IMAGE_INTERVAL = parseInt(process.env.THEWALL_IMAGE_INTERVAL) || 30;
+const IMAGE_QUERY = process.env.THEWALL_IMAGE_QUERY || 'nature';
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 
@@ -209,6 +209,17 @@ fastify.get('/img/thewall-icon.svg', async (request, reply) => {
   const filePath = path.join(__dirname, 'img', 'thewall-icon.svg');
   reply.header('Content-Type', 'image/svg+xml');
   reply.send(fs.readFileSync(filePath, 'utf8'));
+});
+
+// Config endpoint
+fastify.get('/api/config', async (request, reply) => {
+  log('INFO', 'Config request');
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  reply.send({
+    provider: PROVIDER,
+    imageInterval: IMAGE_INTERVAL,
+    imageQuery: IMAGE_QUERY
+  });
 });
 
 // Ping endpoint for connectivity checks

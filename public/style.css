@@ -176,6 +176,27 @@ body {
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
 }
 
+/* Provider attribution - smaller and subtle */
+.provider-attribution {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0;
+}
+
+.provider-attribution a {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.3s ease;
+  padding-bottom: 1px;
+}
+
+.provider-attribution a:hover {
+  color: rgba(255, 255, 255, 0.95);
+  border-bottom-color: rgba(255, 255, 255, 0.6);
+}
+
 /* Attribution details - smaller, subtle */
 .attribution-details {
   font-size: 1.3rem;
