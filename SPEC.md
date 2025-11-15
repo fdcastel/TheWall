@@ -26,6 +26,21 @@ Images are displayed with smooth transitions, attribution information, and have 
 - Users can navigate to the previous image using keyboard shortcuts
 - Navigation should work in both online and offline modes
 
+### Search Functionality
+- Users can change the search query for images by pressing the `S` key (disabled for local provider)
+- A search dialog appears at the top center of the screen with modern styling
+- The dialog shows the current search query and allows editing
+- Press Enter to confirm the new search term
+- Press Escape to cancel and close the dialog
+- When the search query changes, all metadata and cache are reset and new images are fetched
+- Search functionality is only available for Unsplash and Pexels providers
+
+### Orientation Handling
+- Application automatically detects viewport orientation (landscape or portrait)
+- Orientation is passed to image provider APIs to request appropriately oriented images
+- When orientation changes (e.g., window resize), metadata and cache are reset and new images are fetched
+- Orientation handling is only active for Unsplash and Pexels providers (local provider ignores orientation)
+
 ### Attribution Display
 - Attribution information should appear as an overlay in the bottom-left and bottom-right corner (alternated)
 - Attribution should include photographer name (linked to their profile)
@@ -60,14 +75,16 @@ Images are displayed with smooth transitions, attribution information, and have 
 ### Layout
 - Single-page application with no visible navigation elements
 - Full-screen image container
-- Attribution overlay (bottom-left, initially hidden).
-- Offline indicator (top-right, only visible in offline mode).
+- Attribution overlay (bottom-left, initially hidden)
+- Offline indicator (top-right, only visible in offline mode)
+- Search dialog (top-center, only visible when activated with 'S' key)
 
 ### Keyboard Controls
 - `N` or `→` (right arrow): Next image
 - `P` or `←` (left arrow): Previous image
 - `A`: Toggle attribution visibility
 - `O`: Toggle offline mode
+- `S`: Open search dialog to change search query (disabled for local provider)
 
 ### Visual Design
 - Clean, minimal interface
@@ -101,6 +118,14 @@ The application supports multiple image providers that can be selected at config
 - May be passed a search query (e.g. "mountains", or "Norway")
 
 ## API Endpoints
+
+### Configuration Endpoint
+- **Path**: `/api/config`
+- **Method**: GET
+- **Response**: JSON object containing application configuration
+  - `provider`: Current image provider (local, unsplash, or pexels)
+  - `imageInterval`: Auto-advance interval in seconds
+  - `imageQuery`: Current search query for images
 
 ### Image Metadata Endpoint
 - **Path**: `/api/images/metadata`

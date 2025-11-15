@@ -14,6 +14,7 @@ class TheWall {
     this.provider = 'local'; // default, will be overridden by config
     this.imageQuery = 'nature'; // default, will be overridden by config
     this.firstImageLoaded = false;
+    this.currentOrientation = this.getOrientation();
 
     this.imageElement = document.getElementById('current-image');
     this.attributionElement = document.getElementById('attribution');
@@ -21,6 +22,8 @@ class TheWall {
     this.attributionDetails = document.getElementById('attribution-details');
     this.offlineIndicator = document.getElementById('offline-indicator');
     this.loadingScreen = document.getElementById('loading-screen');
+    this.searchDialog = document.getElementById('search-dialog');
+    this.searchInput = document.getElementById('search-input');
 
     this.init();
   }
@@ -30,8 +33,24 @@ class TheWall {
     await this.loadConfig();
     await this.loadMetadata();
     this.setupEventListeners();
+    this.setupOrientationListener();
     this.startAutoAdvance();
     this.displayImage();
+  }
+
+  getOrientation() {
+    return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+  }
+
+  setupOrientationListener() {
+    window.addEventListener('resize', () => {
+      const newOrientation = this.getOrientation();
+      if (newOrientation !== this.currentOrientation && this.provider !== 'local') {
+        console.log(`Orientation changed from ${this.currentOrientation} to ${newOrientation}`);
+        this.currentOrientation = newOrientation;
+        this.resetMetadataAndCache();
+      }
+    });
   }
 
   async loadConfig() {
@@ -51,9 +70,9 @@ class TheWall {
   }
 
   async loadMetadata(count = 30) {
-    console.log('Loading metadata');
+    console.log(`Loading metadata with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
-      const response = await fetch(`/api/images/metadata?count=${count}`);
+      const response = await fetch(`/api/images/metadata?count=${count}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
       if (!response.ok) throw new Error('Failed to load metadata');
       const data = await response.json();
       this.metadata = data.images;
@@ -69,6 +88,16 @@ class TheWall {
 
   setupEventListeners() {
     document.addEventListener('keydown', (e) => {
+      // Ignore keys when search dialog is open, except ESC and Enter
+      if (!this.searchDialog.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+          this.closeSearchDialog();
+        } else if (e.key === 'Enter') {
+          this.confirmSearchDialog();
+        }
+        return;
+      }
+
       switch (e.key) {
         case 'n':
         case 'N':
@@ -87,6 +116,13 @@ class TheWall {
         case 'o':
         case 'O':
           this.toggleOffline();
+          break;
+        case 's':
+        case 'S':
+          if (this.provider !== 'local') {
+            e.preventDefault(); // Prevent 's' from being typed into the input
+            this.openSearchDialog();
+          }
           break;
       }
     });
@@ -182,9 +218,9 @@ class TheWall {
 
   async loadMoreMetadata() {
     const nextStart = this.metadata.length;
-    console.log(`Loading more metadata starting from ${nextStart}`);
+    console.log(`Loading more metadata starting from ${nextStart} with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
-      const response = await fetch(`/api/images/metadata?count=30&start=${nextStart}`);
+      const response = await fetch(`/api/images/metadata?count=30&start=${nextStart}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
       if (!response.ok) throw new Error('Failed to load more metadata');
       const data = await response.json();
       this.metadata.push(...data.images);
@@ -321,6 +357,57 @@ class TheWall {
       this.currentOfflineIndex = null;
     }
     this.updateOfflineIndicator();
+  }
+
+  openSearchDialog() {
+    console.log('Opening search dialog');
+    this.searchInput.value = this.imageQuery;
+    this.searchDialog.classList.remove('hidden');
+    setTimeout(() => {
+      this.searchInput.focus();
+      this.searchInput.select();
+    }, 100);
+  }
+
+  closeSearchDialog() {
+    console.log('Closing search dialog (cancelled)');
+    this.searchDialog.classList.add('hidden');
+  }
+
+  confirmSearchDialog() {
+    const newQuery = this.searchInput.value.trim();
+    if (newQuery && newQuery !== this.imageQuery) {
+      console.log(`Search query changed from "${this.imageQuery}" to "${newQuery}"`);
+      this.imageQuery = newQuery;
+      this.resetMetadataAndCache();
+    }
+    this.closeSearchDialog();
+  }
+
+  async resetMetadataAndCache() {
+    console.log('Resetting metadata and cache');
+    
+    // Show loading screen
+    this.loadingScreen.style.display = 'flex';
+    this.loadingScreen.classList.remove('fade-out');
+    this.firstImageLoaded = false; // Reset to trigger loading screen hide
+    
+    // Stop auto-advance during reset
+    this.stopAutoAdvance();
+    
+    // Clear existing data
+    this.metadata = [];
+    this.prefetched.clear();
+    this.currentIndex = 0;
+    this.offlineImages = null;
+    this.currentOfflineIndex = null;
+    
+    // Reload metadata
+    await this.loadMetadata();
+    
+    // Restart auto-advance and display first image
+    this.startAutoAdvance();
+    this.displayImage();
   }
 
   nextImage() {
