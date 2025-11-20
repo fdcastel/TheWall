@@ -15,6 +15,10 @@ Images are displayed with smooth transitions, attribution information, and have 
 - Images should maintain their aspect ratio while filling the screen (object-fit: cover)
 - Background color should match the dominant color of the displayed image (provided by image provider API)
 - Transitions between images should be smooth (e.g. a quick fade effect)
+- Double buffering should be used to preload the next image in a hidden element before fading it in, preventing black screens during transitions.
+- Hardware acceleration hints (will-change) should be used to improve performance on lower-end devices (e.g., TVs).
+- Application should attempt to enter full-screen mode automatically after the first image loads.
+- Full-screen mode can be toggled by clicking anywhere on the screen (except interactive elements).
 
 ### Auto-Advance
 - Images should automatically advance every 30 seconds (default, configurable)
@@ -47,6 +51,7 @@ Images are displayed with smooth transitions, attribution information, and have 
 - Attribution should include location and creation date when available
 - Attribution overlay should be shown after 5 seconds the image being displayed
 - Attribution overlay should auto-hide after 5 seconds the attribution being displayed
+- If the attribution overlay is visible when the image changes, it should remain visible, update its content immediately, and reset the auto-hide timer (5 seconds).
 - Users can toggle attribution visibility manually
 - Attribution should be hidden if no photographer information is available
 
