@@ -35,36 +35,36 @@ class TheWall {
 
   async init() {
     console.log('Initializing TheWall');
-    this.setupFullScreen();
     await this.loadConfig();
     await this.loadMetadata();
     this.setupEventListeners();
     this.setupOrientationListener();
+    this.setupFullScreen();
     this.startAutoAdvance();
     this.displayImage();
   }
 
   setupFullScreen() {
-    const enterFullScreen = () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-          console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-        });
+    // Toggle full screen on any click
+    document.addEventListener('click', (e) => {
+      // Don't toggle if clicking on interactive elements like links or inputs
+      if (e.target.tagName === 'A' || e.target.tagName === 'INPUT' || e.target.closest('#search-dialog')) {
+        return;
       }
-    };
+      this.toggleFullScreen();
+    });
+  }
 
-    // Try immediately (will likely fail without user interaction)
-    enterFullScreen();
-
-    // Try on first click/interaction
-    const interactionHandler = () => {
-      enterFullScreen();
-      document.removeEventListener('click', interactionHandler);
-      document.removeEventListener('keydown', interactionHandler);
-    };
-
-    document.addEventListener('click', interactionHandler);
-    document.addEventListener('keydown', interactionHandler);
+  toggleFullScreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
   }
 
   getOrientation() {
@@ -204,6 +204,12 @@ class TheWall {
         setTimeout(() => {
           this.loadingScreen.style.display = 'none';
         }, 800); 
+        
+        // Try to enter full screen when first image is displayed
+        // Note: This might still be blocked by browsers if not triggered by user interaction
+        if (!document.fullscreenElement) {
+          this.toggleFullScreen();
+        }
       }
       
       // Swap active classes for crossfade
@@ -304,49 +310,6 @@ class TheWall {
       this.attributionHideTimeout = setTimeout(() => {
         this.attributionElement.classList.add('hidden');
       }, 5000);
-    }, 5000);
-  }
-
-  showAttribution(image) {
-    if (!image.user || !image.user.name) {
-      this.attributionElement.classList.add('hidden');
-      return;
-    }
-    
-    // Build photographer name with link and provider attribution
-    let photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
-    
-    // Add provider attribution for Unsplash and Pexels
-    if (this.provider === 'unsplash') {
-      photographerHTML += ` <span class="provider-attribution">on <a href="https://unsplash.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></span>`;
-    } else if (this.provider === 'pexels') {
-      photographerHTML += ` <span class="provider-attribution">on <a href="https://www.pexels.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Pexels</a></span>`;
-    }
-    
-    this.attributionPhotographer.innerHTML = photographerHTML;
-    
-    // Build details (location and date)
-    let details = [];
-    if (image.location && image.location.name) {
-      details.push(`<span class="attribution-location">${image.location.name}</span>`);
-    }
-    if (image.created_at) {
-      const date = new Date(image.created_at);
-      const formattedDate = date.toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
-      });
-      details.push(formattedDate);
-    }
-    this.attributionDetails.innerHTML = details.join(' · ');
-    
-    // Show attribution with animation
-    this.attributionElement.classList.remove('hidden');
-    
-    // Auto-hide after 5 seconds
-    if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
-    this.attributionHideTimeout = setTimeout(() => {
-      this.attributionElement.classList.add('hidden');
     }, 5000);
   }
 
