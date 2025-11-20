@@ -180,12 +180,18 @@ class TheWall {
     const image = this.metadata[this.currentIndex];
     console.log(`Displaying image ${this.currentIndex}: ${image.url}`);
     
-    // Hide attribution immediately when changing images
-    this.attributionElement.classList.add('hidden');
+    // Handle attribution visibility during transition
+    const isAttributionVisible = !this.attributionElement.classList.contains('hidden');
     
-    // Clear any pending attribution timeouts
-    if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
-    if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+    if (isAttributionVisible) {
+      // If visible, keep it visible but clear the hide timeout so it doesn't disappear mid-transition
+      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+    } else {
+      // If hidden, ensure it stays hidden and clear any pending show timeouts
+      this.attributionElement.classList.add('hidden');
+      if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
+      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+    }
     
     const activeImg = this.imageElements[this.activeImageIndex];
     const nextIndex = (this.activeImageIndex + 1) % 2;
@@ -302,15 +308,28 @@ class TheWall {
     }
     this.attributionDetails.innerHTML = details.join(' · ');
     
-    // Show attribution after 5 seconds
-    this.attributionShowTimeout = setTimeout(() => {
-      this.attributionElement.classList.remove('hidden');
-      
-      // Hide attribution 5 seconds after showing
+    // Logic for showing/hiding attribution
+    if (!this.attributionElement.classList.contains('hidden')) {
+      // It is currently visible (kept visible from displayImage)
+      // We just updated the text to the new image info.
+      // Reset hide timer to hide it after 5 seconds from now.
+      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
       this.attributionHideTimeout = setTimeout(() => {
         this.attributionElement.classList.add('hidden');
       }, 5000);
-    }, 5000);
+    } else {
+      // It is hidden. Default behavior: show after 5 seconds.
+      if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
+      this.attributionShowTimeout = setTimeout(() => {
+        this.attributionElement.classList.remove('hidden');
+        
+        // Hide attribution 5 seconds after showing
+        if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+        this.attributionHideTimeout = setTimeout(() => {
+          this.attributionElement.classList.add('hidden');
+        }, 5000);
+      }, 5000);
+    }
   }
 
   toggleAttribution() {
