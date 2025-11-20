@@ -16,7 +16,12 @@ class TheWall {
     this.firstImageLoaded = false;
     this.currentOrientation = this.getOrientation();
 
-    this.imageElement = document.getElementById('current-image');
+    this.imageElements = [
+      document.getElementById('current-image'),
+      document.getElementById('next-image')
+    ];
+    this.activeImageIndex = 0;
+
     this.attributionElement = document.getElementById('attribution');
     this.attributionPhotographer = document.getElementById('attribution-photographer');
     this.attributionDetails = document.getElementById('attribution-details');
@@ -30,12 +35,36 @@ class TheWall {
 
   async init() {
     console.log('Initializing TheWall');
+    this.setupFullScreen();
     await this.loadConfig();
     await this.loadMetadata();
     this.setupEventListeners();
     this.setupOrientationListener();
     this.startAutoAdvance();
     this.displayImage();
+  }
+
+  setupFullScreen() {
+    const enterFullScreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+      }
+    };
+
+    // Try immediately (will likely fail without user interaction)
+    enterFullScreen();
+
+    // Try on first click/interaction
+    const interactionHandler = () => {
+      enterFullScreen();
+      document.removeEventListener('click', interactionHandler);
+      document.removeEventListener('keydown', interactionHandler);
+    };
+
+    document.addEventListener('click', interactionHandler);
+    document.addEventListener('keydown', interactionHandler);
   }
 
   getOrientation() {
@@ -158,36 +187,39 @@ class TheWall {
     if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
     if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
     
-    // Fade out current image
-    this.imageElement.classList.add('fade-out');
+    const activeImg = this.imageElements[this.activeImageIndex];
+    const nextIndex = (this.activeImageIndex + 1) % 2;
+    const nextImg = this.imageElements[nextIndex];
+
+    // Load new image into next element
+    nextImg.src = image.url;
     
-    // Wait for fade out, then change image
-    setTimeout(() => {
-      this.imageElement.src = image.url;
-      this.imageElement.onload = () => {
-        console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
-        
-        // Hide loading screen on first image load
-        if (!this.firstImageLoaded) {
-          this.firstImageLoaded = true;
-          this.loadingScreen.classList.add('fade-out');
-          setTimeout(() => {
-            this.loadingScreen.style.display = 'none';
-          }, 800); // Match the CSS transition duration
-        }
-        
-        // Fade in new image
-        this.imageElement.classList.remove('fade-out');
-        // Schedule attribution to show after 5 seconds
-        this.scheduleAttribution(image);
-      };
-      this.imageElement.onerror = () => {
-        console.error(`Image load failed ${this.currentIndex}: ${image.url}`);
-        this.offline = true;
-        this.updateOfflineIndicator();
-        this.imageElement.classList.remove('fade-out');
-      };
-    }, 400); // A bit sooner than half of the 1s transition
+    nextImg.onload = () => {
+      console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
+      
+      // Hide loading screen on first image load
+      if (!this.firstImageLoaded) {
+        this.firstImageLoaded = true;
+        this.loadingScreen.classList.add('fade-out');
+        setTimeout(() => {
+          this.loadingScreen.style.display = 'none';
+        }, 800); 
+      }
+      
+      // Swap active classes for crossfade
+      nextImg.classList.add('active');
+      activeImg.classList.remove('active');
+      this.activeImageIndex = nextIndex;
+      
+      // Schedule attribution to show after 5 seconds
+      this.scheduleAttribution(image);
+    };
+
+    nextImg.onerror = () => {
+      console.error(`Image load failed ${this.currentIndex}: ${image.url}`);
+      this.offline = true;
+      this.updateOfflineIndicator();
+    };
     
     document.body.style.backgroundColor = image.color || '#000';
     

@@ -205,6 +205,12 @@ fastify.get('/app.js', async (request, reply) => {
   reply.send(fs.readFileSync(filePath, 'utf8'));
 });
 
+fastify.get('/manifest.json', async (request, reply) => {
+  const filePath = path.join(__dirname, 'public', 'manifest.json');
+  reply.header('Content-Type', 'application/manifest+json');
+  reply.send(fs.readFileSync(filePath, 'utf8'));
+});
+
 fastify.get('/img/thewall-icon.svg', async (request, reply) => {
   const filePath = path.join(__dirname, 'img', 'thewall-icon.svg');
   reply.header('Content-Type', 'image/svg+xml');
