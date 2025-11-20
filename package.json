@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "playwright test --workers=1",
+    "test": "playwright test",
     "dev": "node server.js"
   },
   "dependencies": {
