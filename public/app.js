@@ -38,6 +38,7 @@ class TheWall {
     this.lastTapTime = 0;
     this.lastClickTime = 0;
     this.clickTimeout = null;
+    this.lastTouchTime = 0;
 
     this.init();
   }
@@ -56,6 +57,8 @@ class TheWall {
   setupFullScreen() {
     // Toggle attribution on any click
     document.addEventListener('click', (e) => {
+      // Ignore clicks that follow recent touch events to prevent double triggering on mobile
+      if (Date.now() - this.lastTouchTime < 500) return;
       // Don't toggle if clicking on interactive elements like links or inputs
       if (e.target.tagName === 'A' || e.target.tagName === 'INPUT' || e.target.closest('#search-dialog')) {
         return;
@@ -228,6 +231,7 @@ class TheWall {
     });
 
     document.addEventListener('touchend', (e) => {
+      this.lastTouchTime = Date.now();
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
       const deltaX = touchEndX - this.touchStartX;
