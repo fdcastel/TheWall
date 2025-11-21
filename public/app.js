@@ -30,6 +30,13 @@ class TheWall {
     this.searchDialog = document.getElementById('search-dialog');
     this.searchInput = document.getElementById('search-input');
 
+    this.touchStartX = 0;
+    this.touchStartY = 0;
+    this.touchStartTime = 0;
+    this.lastTapTime = 0;
+    this.lastClickTime = 0;
+    this.clickTimeout = null;
+
     this.init();
   }
 
@@ -45,12 +52,25 @@ class TheWall {
   }
 
   setupFullScreen() {
-    // Toggle full screen on any click
+    // Toggle attribution on any click
     document.addEventListener('click', (e) => {
       // Don't toggle if clicking on interactive elements like links or inputs
       if (e.target.tagName === 'A' || e.target.tagName === 'INPUT' || e.target.closest('#search-dialog')) {
         return;
       }
+      if (this.clickTimeout) clearTimeout(this.clickTimeout);
+      this.clickTimeout = setTimeout(() => {
+        this.toggleAttribution();
+      }, 300);
+    });
+
+    // Toggle fullscreen on double click
+    document.addEventListener('dblclick', (e) => {
+      // Don't toggle if clicking on interactive elements like links or inputs
+      if (e.target.tagName === 'A' || e.target.tagName === 'INPUT' || e.target.closest('#search-dialog')) {
+        return;
+      }
+      if (this.clickTimeout) clearTimeout(this.clickTimeout);
       this.toggleFullScreen();
     });
   }
@@ -142,6 +162,23 @@ class TheWall {
         case 'A':
           this.toggleAttribution();
           break;
+        case ' ':
+          e.preventDefault();
+          this.toggleAttribution();
+          break;
+        case 'f':
+        case 'F':
+          this.toggleFullScreen();
+          break;
+        case '0':
+          this.toggleOffline();
+          break;
+        case '5':
+          if (this.provider !== 'local') {
+            e.preventDefault();
+            this.openSearchDialog();
+          }
+          break;
         case 'o':
         case 'O':
           this.toggleOffline();
@@ -153,6 +190,52 @@ class TheWall {
             this.openSearchDialog();
           }
           break;
+      }
+    });
+
+    // Wheel for navigation
+    document.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY > 0) this.nextImage();
+      else this.prevImage();
+    });
+
+    // Touch gestures
+    document.addEventListener('touchstart', (e) => {
+      this.touchStartX = e.touches[0].clientX;
+      this.touchStartY = e.touches[0].clientY;
+      this.touchStartTime = Date.now();
+    });
+
+    document.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaX = touchEndX - this.touchStartX;
+      const deltaY = touchEndY - this.touchStartY;
+      const deltaTime = Date.now() - this.touchStartTime;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+      if (absDeltaX > 50 && absDeltaX > absDeltaY) {
+        // Swipe
+        if (deltaX > 0) this.prevImage();
+        else this.nextImage();
+      } else if (absDeltaX < 10 && absDeltaY < 10) {
+        // Tap
+        if (deltaTime < 500) {
+          // Short tap
+          const now = Date.now();
+          if (now - this.lastTapTime < 300) {
+            // Double tap
+            this.toggleFullScreen();
+          } else {
+            // Single tap
+            this.toggleAttribution();
+          }
+          this.lastTapTime = now;
+        } else {
+          // Long press
+          // Menu functionality removed
+        }
       }
     });
   }
@@ -210,12 +293,6 @@ class TheWall {
         setTimeout(() => {
           this.loadingScreen.style.display = 'none';
         }, 800); 
-        
-        // Try to enter full screen when first image is displayed
-        // Note: This might still be blocked by browsers if not triggered by user interaction
-        if (!document.fullscreenElement) {
-          this.toggleFullScreen();
-        }
       }
       
       // Swap active classes for crossfade

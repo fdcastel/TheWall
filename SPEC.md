@@ -8,6 +8,8 @@ The application supports multiple image providers (local storage, Unsplash, Pexe
 
 Images are displayed with smooth transitions, attribution information, and have support for working in offline mode (reusing previously downloaded content).
 
+The application provides a unified command control experience across devices: desktops with keyboards/mice, tablets/totems with touch screens, and TVs with remote controls.
+
 ## Core Functionality
 
 ### Image Display
@@ -18,7 +20,8 @@ Images are displayed with smooth transitions, attribution information, and have 
 - Double buffering should be used to preload the next image in a hidden element before fading it in, preventing black screens during transitions.
 - Hardware acceleration hints (will-change) should be used to improve performance on lower-end devices (e.g., TVs).
 - Application should attempt to enter full-screen mode automatically after the first image loads.
-- Full-screen mode can be toggled by clicking anywhere on the screen (except interactive elements).
+- Full-screen mode can be toggled by double-clicking anywhere on the screen (except interactive elements).
+- Attribution can be toggled by single-clicking anywhere on the screen (except interactive elements).
 
 ### Auto-Advance
 - Images should automatically advance every 30 seconds (default, configurable)
@@ -82,14 +85,32 @@ Images are displayed with smooth transitions, attribution information, and have 
 - Full-screen image container
 - Attribution overlay (bottom-left, initially hidden)
 - Offline indicator (top-right, only visible in offline mode)
-- Search dialog (top-center, only visible when activated with 'S' key)
+- Search dialog (top-center, only visible when activated)
 
 ### Keyboard Controls
 - `N` or `→` (right arrow): Next image
 - `P` or `←` (left arrow): Previous image
-- `A`: Toggle attribution visibility
-- `O`: Toggle offline mode
-- `S`: Open search dialog to change search query (disabled for local provider)
+- `A` or `Space`: Toggle attribution visibility
+- `O` or `0`: Toggle offline mode
+- `S` or `5`: Open search dialog to change search query (disabled for local provider)
+- `F`: Toggle fullscreen mode
+
+### Mouse Controls
+- Wheel up/down: Navigate to previous/next image
+- Single click: Toggle attribution visibility
+- Double click: Toggle fullscreen mode
+
+### Touch Controls
+- Swipe left: Next image
+- Swipe right: Previous image
+- Single tap: Toggle attribution visibility
+- Double tap: Toggle fullscreen mode
+
+### Remote Control
+- Arrow keys: Navigate to previous/next image
+- Enter/OK: Toggle attribution visibility
+- Number 0: Toggle offline mode
+- Number 5: Open search dialog (disabled for local provider)
 
 ### Visual Design
 - Clean, minimal interface
