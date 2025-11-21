@@ -156,6 +156,7 @@ class TheWall {
   }
 
   setupEventListeners() {
+    // Use capture phase to ensure global keyboard handling works regardless of focus
     document.addEventListener('keydown', (e) => {
       // Ignore keys when search dialog is open, except ESC and Enter
       if (!this.searchDialog.classList.contains('hidden')) {
@@ -177,6 +178,18 @@ class TheWall {
         case 'P':
         case 'ArrowLeft':
           this.prevImage();
+          break;
+        case 'ArrowUp':
+          // UP: Toggle search dialog (for remote controls)
+          if (this.provider !== 'local') {
+            e.preventDefault();
+            this.toggleSearchDialog();
+          }
+          break;
+        case 'ArrowDown':
+          // DOWN: Toggle attribution overlay (for remote controls)
+          e.preventDefault();
+          this.toggleAttribution();
           break;
         case 'a':
         case 'A':
@@ -204,7 +217,7 @@ class TheWall {
           }
           break;
       }
-    });
+    }, true); // Use capture phase for global handling
 
     // Wheel for navigation
     document.addEventListener('wheel', (e) => {
@@ -213,7 +226,7 @@ class TheWall {
       else this.prevImage();
     });
 
-    // Touch gestures
+    // Touch gestures with zone-based navigation
     document.addEventListener('touchstart', (e) => {
       this.touchStartX = e.touches[0].clientX;
       this.touchStartY = e.touches[0].clientY;
@@ -221,6 +234,13 @@ class TheWall {
     });
 
     document.addEventListener('touchend', (e) => {
+      // Don't process touches on interactive elements (links, inputs, buttons)
+      const target = e.target;
+      if (target.tagName === 'A' || target.tagName === 'INPUT' || target.tagName === 'BUTTON' ||
+          target.closest('a') || target.closest('#search-dialog') || target.closest('#attribution')) {
+        return;
+      }
+
       this.lastTouchTime = Date.now();
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
@@ -229,23 +249,50 @@ class TheWall {
       const deltaTime = Date.now() - this.touchStartTime;
       const absDeltaX = Math.abs(deltaX);
       const absDeltaY = Math.abs(deltaY);
+      
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
       if (absDeltaX > 50 && absDeltaX > absDeltaY) {
         // Swipe
         if (deltaX > 0) this.prevImage();
         else this.nextImage();
       } else if (absDeltaX < 10 && absDeltaY < 10) {
-        // Tap
+        // Tap - check for zone-based navigation
         if (deltaTime < 500) {
           // Short tap
           const now = Date.now();
           if (now - this.lastTapTime < 300) {
-            // Double tap
+            // Double tap - toggle fullscreen
             this.toggleFullScreen();
+            this.lastTapTime = 0; // Reset to prevent triple-tap issues
           } else {
-            // Single tap
-            this.toggleAttribution();
+            // Single tap - check zones (20% edges)
+            const leftZone = viewportWidth * 0.2;
+            const rightZone = viewportWidth * 0.8;
+            const topZone = viewportHeight * 0.2;
+            const bottomZone = viewportHeight * 0.8;
+            
+            if (touchEndX < leftZone) {
+              // Left 20% - previous image
+              this.prevImage();
+            } else if (touchEndX > rightZone) {
+              // Right 20% - next image
+              this.nextImage();
+            } else if (touchEndY < topZone) {
+              // Top 20% - toggle search dialog (only if dialog is not already open)
+              if (this.provider !== 'local' && this.searchDialog.classList.contains('hidden')) {
+                this.openSearchDialog();
+              }
+            } else if (touchEndY > bottomZone) {
+              // Bottom 20% - toggle attribution
+              this.toggleAttribution();
+            } else {
+              // Center area - toggle attribution (default behavior)
+              this.toggleAttribution();
+            }
+            this.lastTapTime = now;
           }
-          this.lastTapTime = now;
         } else {
           // Long press
           // Menu functionality removed
@@ -459,10 +506,31 @@ class TheWall {
     this.updateOfflineIndicator();
   }
 
+  toggleSearchDialog() {
+    if (this.searchDialog.classList.contains('hidden')) {
+      this.openSearchDialog();
+    } else {
+      this.closeSearchDialog();
+    }
+  }
+
   openSearchDialog() {
     console.log('Opening search dialog');
     this.searchInput.value = this.imageQuery;
     this.searchDialog.classList.remove('hidden');
+    
+    // Add blur event listener to close dialog when input loses focus
+    const blurHandler = () => {
+      // Small delay to allow Enter key to be processed first
+      setTimeout(() => {
+        if (!this.searchDialog.classList.contains('hidden')) {
+          this.closeSearchDialog();
+        }
+      }, 150);
+      this.searchInput.removeEventListener('blur', blurHandler);
+    };
+    this.searchInput.addEventListener('blur', blurHandler);
+    
     setTimeout(() => {
       this.searchInput.focus();
       this.searchInput.select();

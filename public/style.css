@@ -242,6 +242,7 @@ body {
   animation: fadeOut 0.5s ease-out;
   animation-fill-mode: forwards;
   pointer-events: none;
+  visibility: hidden;
 }
 
 /* Search dialog - modern, centered */
@@ -267,6 +268,7 @@ body {
   animation: slideOutUp 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53);
   animation-fill-mode: forwards;
   pointer-events: none;
+  visibility: hidden;
 }
 
 @keyframes slideInDown {
@@ -349,6 +351,7 @@ body {
   animation: slideOutUp 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53);
   animation-fill-mode: forwards;
   pointer-events: none;
+  visibility: hidden;
 }
 
 #warning-message-content {
@@ -358,3 +361,68 @@ body {
   text-align: center;
   letter-spacing: 0.02em;
 }
+
+/* Mobile: Scale down all UI elements for touch devices */
+@media (hover: none) and (pointer: coarse) {
+  /* Attribution overlay - reduce by 50% */
+  #attribution {
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    padding: 16px 20px;
+    border-radius: 12px;
+  }
+
+  .attribution-photographer {
+    font-size: 1.1rem;
+  }
+  
+  .provider-attribution {
+    font-size: 0.55rem;
+  }
+  
+  .attribution-details {
+    font-size: 0.65rem;
+  }
+
+  /* Search dialog - more compact */
+  #search-dialog {
+    top: 40px;
+    padding: 20px 24px;
+    border-radius: 16px;
+    min-width: auto;
+    max-width: 90vw;
+    left: 50%;
+  }
+
+  #search-label {
+    font-size: 0.75rem;
+  }
+
+  #search-input {
+    font-size: 1.2rem;
+    padding: 12px 16px;
+    border-radius: 10px;
+  }
+
+  /* Warning message - more compact */
+  #warning-message {
+    top: 20px;
+    padding: 12px 20px;
+    border-radius: 10px;
+  }
+
+  #warning-message-content {
+    font-size: 0.9rem;
+  }
+
+  /* Offline indicator - more compact */
+  #offline-indicator {
+    top: 20px;
+    right: 20px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+  }
+}
+
