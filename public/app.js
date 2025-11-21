@@ -6,7 +6,6 @@ class TheWall {
     this.metadata = [];
     this.prefetched = new Set();
     this.offline = false;
-    this.manualOffline = false;
     this.autoAdvanceInterval = null;
     this.attributionShowTimeout = null;
     this.attributionHideTimeout = null;
@@ -149,12 +148,10 @@ class TheWall {
         return;
       }
       
-      this.offline = false;
-      this.updateOfflineIndicator();
+      this.setOffline(false);
     } catch (err) {
       console.error(`Metadata load failed: ${err.message}`);
-      this.offline = true;
-      this.updateOfflineIndicator();
+      this.setOffline(true);
     }
   }
 
@@ -193,18 +190,11 @@ class TheWall {
         case 'F':
           this.toggleFullScreen();
           break;
-        case '0':
-          this.toggleOffline();
-          break;
         case '5':
           if (this.provider !== 'local') {
             e.preventDefault();
             this.openSearchDialog();
           }
-          break;
-        case 'o':
-        case 'O':
-          this.toggleOffline();
           break;
         case 's':
         case 'S':
@@ -330,29 +320,23 @@ class TheWall {
 
     nextImg.onerror = () => {
       console.error(`Image load failed ${this.currentIndex}: ${image.url}`);
-      this.offline = true;
-      this.updateOfflineIndicator();
+      this.setOffline(true);
     };
     
     document.body.style.backgroundColor = image.color || '#000';
     
-    // Check connectivity
-    fetch('/api/ping').then(() => {
-      // If was offline and not manual, set back online
-      if (this.offline && !this.manualOffline) {
-        console.log('Server connectivity restored - exiting offline mode');
-        this.offline = false;
-        this.updateOfflineIndicator();
-        this.offlineImages = null;
-        this.currentOfflineIndex = null;
-      }
-    }).catch(() => {
-      if (!this.offline) {
-        console.warn('Server connectivity lost - entering offline mode');
-        this.toggleOffline();
-        this.manualOffline = false;
-      }
-    });
+    // Check connectivity if offline
+    if (this.offline) {
+      fetch('/api/ping').then(response => {
+        if (response.ok) {
+          console.log('Server connectivity restored - exiting offline mode');
+          this.setOffline(false);
+        }
+      }).catch(() => {
+        // Still offline, do nothing
+      });
+    }
+
     this.prefetchImages();
 
     // Fetch more metadata if nearing the end
@@ -372,8 +356,7 @@ class TheWall {
       console.log(`Loaded additional ${data.images.length} metadata items, total: ${this.metadata.length}`);
     } catch (err) {
       console.error(`Load more metadata failed: ${err.message}`);
-      this.offline = true;
-      this.updateOfflineIndicator();
+      this.setOffline(true);
     }
   }
 
@@ -453,10 +436,12 @@ class TheWall {
     }
   }
 
-  toggleOffline() {
-    this.offline = !this.offline;
-    this.manualOffline = true;
-    console.log(`Manual offline toggle - offline mode: ${this.offline}`);
+  setOffline(isOffline) {
+    if (this.offline === isOffline) return;
+    
+    this.offline = isOffline;
+    console.log(`Offline mode set to: ${this.offline}`);
+    
     if (this.offline) {
       // When going offline, cycle through currently prefetched images
       this.offlineImages = Array.from(this.prefetched).sort((a, b) => a - b);

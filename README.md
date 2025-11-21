@@ -19,7 +19,6 @@ thewall.dalcastel.com
 - `I` or `Space`: Toggle image attribution
 - `S` or `5`: Search for different images (remote providers only)
 - `F`: Toggle fullscreen
-- `O` or `0`: Toggle offline mode
 
 ### Mouse
 - Wheel up/down: Navigate images

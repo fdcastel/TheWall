@@ -65,8 +65,8 @@ The application provides a unified command control experience across devices: de
 - In offline mode, display an "OFFLINE" indicator in the top-right corner
 - Offline mode should cycle through previously prefetched images (locally available in the browser cache)
 - Navigation should work within the offline image set
-- Offline mode should be toggleable by user
 - Offline detection occurs when image fetches fail (e.g., during prefetching or display loading), as this happens more frequently than metadata fetches. Metadata fetch failures may also trigger offline mode as a fallback.
+- When in offline mode, the application should periodically check for connectivity (e.g., via a `/api/ping` endpoint) during image transitions. If connectivity is restored, the application should automatically exit offline mode and resume normal operation.
 
 ### Image Prefetching
 - Application should prefetch upcoming images by fetching their URLs
@@ -93,7 +93,6 @@ The application provides a unified command control experience across devices: de
 - `N` or `→` (right arrow): Next image
 - `P` or `←` (left arrow): Previous image
 - `A` or `Space`: Toggle attribution visibility
-- `O` or `0`: Toggle offline mode
 - `S` or `5`: Open search dialog to change search query (disabled for local provider)
 - `F`: Toggle fullscreen mode
 
@@ -111,7 +110,6 @@ The application provides a unified command control experience across devices: de
 ### Remote Control
 - Arrow keys: Navigate to previous/next image
 - Enter/OK: Toggle attribution visibility
-- Number 0: Toggle offline mode
 - Number 5: Open search dialog (disabled for local provider)
 
 ### Visual Design
@@ -250,7 +248,7 @@ The following table illustrates the expected behavior of the application during 
 | Page Load | 0             | false   | 0..29          | 0..2              |
 | NEXT      | 1             | false   | 0..29          | 0..3              |
 | NEXT      | 2             | false   | 0..29          | 0..4              |
-| OFFLINE   | 2             | true    | 0..29          | 0..4              |
+| NET FAIL  | 2             | true    | 0..29          | 0..4              |
 | NEXT      | 3             | true    | 0..29          | 0..4              |
 | NEXT      | 4             | true    | 0..29          | 0..4              |
 | NEXT      | 0             | true    | 0..29          | 0..4              |
@@ -258,7 +256,7 @@ The following table illustrates the expected behavior of the application during 
 | NEXT      | 2             | true    | 0..29          | 0..4              |
 | NEXT      | 3             | true    | 0..29          | 0..4              |
 | NEXT      | 4             | true    | 0..29          | 0..4              |
-| OFFLINE   | 4             | false   | 0..29          | 0..6              |
+| ONLINE    | 4             | false   | 0..29          | 0..6              |
 | NEXT      | 5             | false   | 0..29          | 0..7              |
 | NEXT      | 6             | false   | 0..29          | 0..8              |
 | NEXT      | 7             | false   | 0..29          | 0..9              |
