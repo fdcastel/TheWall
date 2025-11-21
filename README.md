@@ -1,14 +1,35 @@
 # TheWall
 
-TheWall is a full-screen image slideshow web application. It displays high-resolution landscape images in a full-screen, auto-advancing presentation and supports multiple image providers (Unsplash, Pexels, or a local folder).
+TheWall is a full-screen image slideshow web application. It displays high-resolution landscape images in a full-screen presentation and supports multiple image providers (Unsplash, Pexels, or a local folder).
+
+thewall.dalcastel.com
 
 ## Features
 - Full-screen image display with smooth transitions
-- Auto-advance (default 30s, configurable)
-- Keyboard navigation (N/→ next, P/← previous)
-- Attribution overlay and offline mode
+- Optimized for devices with limited CPU resources (such as TVs)
+- Keyboard, mouse, touch (gestures) and remote-control support for navigation
 - Prefetching for fast image switches
 - Docker-friendly for easy deployment
+
+## Controls
+
+### Keyboard / Remote
+- `N` or `→`: Next image
+- `P` or `←`: Previous image  
+- `I` or `Space`: Toggle image attribution
+- `S` or `5`: Search for different images (remote providers only)
+- `F`: Toggle fullscreen
+- `O` or `0`: Toggle offline mode
+
+### Mouse
+- Wheel up/down: Navigate images
+- Single click: Toggle attribution
+- Double click: Toggle fullscreen
+
+### Touch
+- Swipe left/right: Navigate images
+- Single tap: Toggle attribution
+- Double tap: Toggle fullscreen
 
 ## Quick start (Node)
 1. Install dependencies:
@@ -58,8 +79,8 @@ Scripts from `package.json`:
 
 Testing
 - Unit tests: `npm run test:unit`
-- E2E tests (requires server running): `npm run test:e2e`
+- E2E tests: `npm run test`
 
 Notes and links
-- See `SPEC.md` for a complete specification of expected behavior (prefetching, offline mode, attribution rules, API endpoints).
+- See `SPEC.md` for a complete specification of expected behavior.
 - When using a remote provider, set the provider API key environment variables before starting the server.
