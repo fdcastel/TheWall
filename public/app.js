@@ -13,6 +13,7 @@ class TheWall {
     this.imageInterval = 30; // seconds (default, will be overridden by config)
     this.provider = 'local'; // default, will be overridden by config
     this.imageQuery = 'nature'; // default, will be overridden by config
+    this.previousImageQuery = 'nature'; // store previous query for fallback
     this.firstImageLoaded = false;
     this.currentOrientation = this.getOrientation();
 
@@ -29,6 +30,7 @@ class TheWall {
     this.loadingScreen = document.getElementById('loading-screen');
     this.searchDialog = document.getElementById('search-dialog');
     this.searchInput = document.getElementById('search-input');
+    this.warningMessage = document.getElementById('warning-message');
 
     this.touchStartX = 0;
     this.touchStartY = 0;
@@ -97,7 +99,7 @@ class TheWall {
       if (newOrientation !== this.currentOrientation && this.provider !== 'local') {
         console.log(`Orientation changed from ${this.currentOrientation} to ${newOrientation}`);
         this.currentOrientation = newOrientation;
-        this.resetMetadataAndCache();
+        this.resetMetadataAndCache(true, false);
       }
     });
   }
@@ -118,7 +120,7 @@ class TheWall {
     }
   }
 
-  async loadMetadata(count = 30) {
+  async loadMetadata(count = 30, isSearchChange = false) {
     console.log(`Loading metadata with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
       const response = await fetch(`/api/images/metadata?count=${count}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
@@ -126,6 +128,24 @@ class TheWall {
       const data = await response.json();
       this.metadata = data.images;
       console.log(`Loaded ${this.metadata.length} metadata items`);
+      
+      // If this is a search change and we have results, show loading screen
+      if (isSearchChange && this.metadata.length > 0) {
+        this.loadingScreen.style.display = 'flex';
+        this.loadingScreen.classList.remove('fade-out');
+        this.firstImageLoaded = false; // Reset to trigger loading screen hide
+      }
+      
+      // Check if no images were found
+      if (this.metadata.length === 0) {
+        console.warn(`No images found for query "${this.imageQuery}", reverting to previous query "${this.previousImageQuery}"`);
+        this.imageQuery = this.previousImageQuery;
+        this.showWarningMessage();
+        // Reload with previous query without showing loading screen
+        await this.loadMetadata(count, false);
+        return;
+      }
+      
       this.offline = false;
       this.updateOfflineIndicator();
     } catch (err) {
@@ -465,23 +485,34 @@ class TheWall {
     this.searchDialog.classList.add('hidden');
   }
 
+  showWarningMessage() {
+    console.log('Showing warning message');
+    this.warningMessage.classList.remove('hidden');
+    setTimeout(() => {
+      this.warningMessage.classList.add('hidden');
+    }, 5000);
+  }
+
   confirmSearchDialog() {
     const newQuery = this.searchInput.value.trim();
     if (newQuery && newQuery !== this.imageQuery) {
       console.log(`Search query changed from "${this.imageQuery}" to "${newQuery}"`);
+      this.previousImageQuery = this.imageQuery; // Store previous query for fallback
       this.imageQuery = newQuery;
-      this.resetMetadataAndCache();
+      this.resetMetadataAndCache(false, true);
     }
     this.closeSearchDialog();
   }
 
-  async resetMetadataAndCache() {
+  async resetMetadataAndCache(showLoading = true, isSearchChange = false) {
     console.log('Resetting metadata and cache');
     
-    // Show loading screen
-    this.loadingScreen.style.display = 'flex';
-    this.loadingScreen.classList.remove('fade-out');
-    this.firstImageLoaded = false; // Reset to trigger loading screen hide
+    if (showLoading) {
+      // Show loading screen
+      this.loadingScreen.style.display = 'flex';
+      this.loadingScreen.classList.remove('fade-out');
+      this.firstImageLoaded = false; // Reset to trigger loading screen hide
+    }
     
     // Stop auto-advance during reset
     this.stopAutoAdvance();
@@ -494,7 +525,7 @@ class TheWall {
     this.currentOfflineIndex = null;
     
     // Reload metadata
-    await this.loadMetadata();
+    await this.loadMetadata(30, isSearchChange);
     
     // Restart auto-advance and display first image
     this.startAutoAdvance();

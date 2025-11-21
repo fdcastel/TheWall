@@ -39,7 +39,9 @@ The application provides a unified command control experience across devices: de
 - The dialog shows the current search query and allows editing
 - Press Enter to confirm the new search term
 - Press Escape to cancel and close the dialog
-- When the search query changes, all metadata and cache are reset and new images are fetched
+- When the search query changes, the application attempts to fetch new images with the new query
+- If the new query returns results, the loading screen is displayed while metadata and cache are reset and new images are fetched
+- If the new query returns no results, a warning message is displayed and the application reverts to the previous query without showing the loading screen
 - Search functionality is only available for Unsplash and Pexels providers
 
 ### Orientation Handling
