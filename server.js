@@ -62,10 +62,14 @@ function getUnsplashMetadata(count = 30, orientation = 'landscape', query, start
       resolve([]);
       return;
     }
-    // Unsplash uses 1-indexed pages, calculate page from start
-    const page = Math.floor(start / count) + 1;
-    log('VERBOSE', `Unsplash pagination: start=${start}, count=${count}, page=${page}`);
-    const url = `https://api.unsplash.com/search/photos?per_page=${count}&page=${page}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
+    // // Unsplash uses 1-indexed pages, calculate page from start
+    // const page = Math.floor(start / count) + 1;
+    // log('VERBOSE', `Unsplash pagination: start=${start}, count=${count}, page=${page}`);
+    // const url = `https://api.unsplash.com/search/photos?per_page=${count}&page=${page}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
+
+    // Search endpoint does not return image location. Uses random endpoint, instead (does not have pagination).
+    const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
+
     log('INFO', `Fetching Unsplash metadata: ${url}`);
     https.get(url, { headers: { 'User-Agent': 'TheWall/1.0' } }, (res) => {
       let data = '';
@@ -75,8 +79,11 @@ function getUnsplashMetadata(count = 30, orientation = 'landscape', query, start
           if (res.statusCode !== 200) {
             throw new Error(`Unsplash API error: ${res.statusCode}`);
           }
-          const response = JSON.parse(data);
-          const photos = response.results || [];
+          // const response = JSON.parse(data);
+          // const photos = response.results || [];
+
+          const photos = JSON.parse(data);
+
           const metadata = photos.map((photo, index) => ({
             id: photo.id,
             url: photo.urls.raw,
