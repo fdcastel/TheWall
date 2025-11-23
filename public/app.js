@@ -5,6 +5,7 @@ class TheWall {
     this.currentIndex = 0;
     this.metadata = [];
     this.prefetched = new Set();
+    this.prefetchingImages = new Map(); // Map of index -> Image object for ongoing prefetches
     this.offline = false;
     this.autoAdvanceInterval = null;
     this.attributionShowTimeout = null;
@@ -582,6 +583,7 @@ class TheWall {
     // Clear existing data
     this.metadata = [];
     this.prefetched.clear();
+    this.prefetchingImages.clear();
     this.currentIndex = 0;
     this.offlineImages = null;
     this.currentOfflineIndex = null;
@@ -624,21 +626,50 @@ class TheWall {
 
   prefetchImages() {
     if (this.offline) return;
-    const prefetchCount = this.prefetchCount + 1; // current + N ahead
-    for (let i = 0; i < prefetchCount; i++) {
+    
+    // Cancel any ongoing prefetches for images at or behind current position
+    for (const [index, imgObj] of this.prefetchingImages.entries()) {
+      if (index <= this.currentIndex) {
+        console.log(`Cancelling stale prefetch for image ${index} (current: ${this.currentIndex})`);
+        imgObj.cancelled = true; // Mark as cancelled
+        imgObj.img.src = ''; // Cancel the ongoing request
+        this.prefetchingImages.delete(index);
+      }
+    }
+    
+    // Only prefetch images AHEAD of current position
+    const prefetchCount = this.prefetchCount; // N images ahead (not including current)
+    for (let i = 1; i <= prefetchCount; i++) { // Start at 1 to skip current image
       const index = (this.currentIndex + i) % this.metadata.length;
-      if (this.prefetched.has(index)) continue;
+      
+      // Skip if already prefetched or currently prefetching
+      if (this.prefetched.has(index) || this.prefetchingImages.has(index)) continue;
+      
       const image = this.metadata[index];
       const img = new Image();
+      const imgObj = { img, cancelled: false };
+      
       img.onload = () => {
-        console.log(`Image prefetched successfully ${index}: ${image.url}`);
+        // Only mark as prefetched if not cancelled AND still ahead of current position
+        if (!imgObj.cancelled && index > this.currentIndex) {
+          console.log(`Image prefetched successfully ${index}: ${image.url}`);
+          this.prefetched.add(index);
+        } else if (imgObj.cancelled) {
+          console.log(`Image prefetch completed but was cancelled ${index}: ${image.url}`);
+        } else {
+          console.log(`Image prefetch completed but already passed ${index}: ${image.url} (current: ${this.currentIndex})`);
+        }
+        this.prefetchingImages.delete(index);
       };
+      
       img.onerror = () => {
         console.warn(`Image prefetch failed ${index}: ${image.url}`);
+        this.prefetchingImages.delete(index);
       };
-      img.src = image.url;
-      this.prefetched.add(index);
+      
+      this.prefetchingImages.set(index, imgObj);
       console.log(`Prefetching image ${index}: ${image.url}`);
+      img.src = image.url; // Start the prefetch
     }
   }
 }

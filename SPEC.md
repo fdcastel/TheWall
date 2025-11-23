@@ -73,7 +73,17 @@ The application provides a unified command control experience across devices: de
 - Prefetching works by programmatically creating `<img>` elements in the DOM with the image URLs, forcing the browser to download and cache them via HTTP. 
   - This differs from metadata fetching, which retrieves JSON data (e.g., 30 items at a time) without downloading the actual image files. 
   - Metadata is lightweight and fetched in batches to populate the image list, while images are prefetched individually for instant display.
-  - The Metadata API is rate-limited, while the image endpoints are not. That’s why we request a batch of 30 images per API call. For instance, the Unsplash API limits requests to 50 calls per hour.
+  - The Metadata API is rate-limited, while the image endpoints are not. That's why we request a batch of images per API call (configured via `THEWALL_METADATA_COUNT`, default: 30). For instance, the Unsplash API limits requests to 50 calls per hour.
+
+### Prefetching Optimization for Rapid Navigation
+When users navigate rapidly through images (e.g., pressing next multiple times in quick succession), the application must avoid unnecessary network overhead:
+- **Problem**: Without optimization, prefetching initiated at image N for image N+2 may complete after the user has already navigated to image N+5, resulting in wasteful downloads of already-passed images
+- **Solution**: The application tracks all ongoing prefetch operations and validates at completion time whether the prefetched image is still ahead of the current display position
+- **Implementation**: 
+  - Only initiate prefetches for images strictly ahead of the current index (not at or behind)
+  - When a prefetch completes, check if `imageIndex > currentIndex` before marking it as successfully prefetched
+  - If the check fails, the prefetch is discarded (not added to the prefetched set), preventing it from consuming unnecessary memory and network resources
+- **Benefit**: During rapid navigation, this ensures only relevant forward images are prefetched, significantly reducing bandwidth usage and improving performance
 
 ## User Interface
 

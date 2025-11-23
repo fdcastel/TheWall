@@ -218,6 +218,7 @@ fastify.get('/style.css', async (request, reply) => {
 fastify.get('/app.js', async (request, reply) => {
   const filePath = path.join(__dirname, 'public', 'app.js');
   reply.header('Content-Type', 'application/javascript');
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   reply.send(fs.readFileSync(filePath, 'utf8'));
 });
 
