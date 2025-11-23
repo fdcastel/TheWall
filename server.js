@@ -9,6 +9,8 @@ const PROVIDER = process.env.THEWALL_PROVIDER || 'local';
 const LOCAL_FOLDER = process.env.THEWALL_LOCAL_FOLDER || './samples';
 const IMAGE_INTERVAL = parseInt(process.env.THEWALL_IMAGE_INTERVAL) || 30;
 const IMAGE_QUERY = process.env.THEWALL_IMAGE_QUERY || 'nature';
+const METADATA_COUNT = parseInt(process.env.THEWALL_METADATA_COUNT) || 30;
+const PREFETCH_COUNT = parseInt(process.env.THEWALL_PREFETCH_COUNT) || 2;
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 
@@ -60,7 +62,10 @@ function getUnsplashMetadata(count = 30, orientation = 'landscape', query, start
       resolve([]);
       return;
     }
-    const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
+    // Unsplash uses 1-indexed pages, calculate page from start
+    const page = Math.floor(start / count) + 1;
+    log('VERBOSE', `Unsplash pagination: start=${start}, count=${count}, page=${page}`);
+    const url = `https://api.unsplash.com/search/photos?per_page=${count}&page=${page}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
     log('INFO', `Fetching Unsplash metadata: ${url}`);
     https.get(url, { headers: { 'User-Agent': 'TheWall/1.0' } }, (res) => {
       let data = '';
@@ -70,7 +75,8 @@ function getUnsplashMetadata(count = 30, orientation = 'landscape', query, start
           if (res.statusCode !== 200) {
             throw new Error(`Unsplash API error: ${res.statusCode}`);
           }
-          const photos = JSON.parse(data);
+          const response = JSON.parse(data);
+          const photos = response.results || [];
           const metadata = photos.map((photo, index) => ({
             id: photo.id,
             url: photo.urls.raw,
@@ -104,7 +110,10 @@ function getPexelsMetadata(count = 30, orientation = 'landscape', query, start =
       resolve([]);
       return;
     }
-    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&orientation=${orientation}`;
+    // Pexels uses 1-indexed pages, calculate page from start
+    const page = Math.floor(start / count) + 1;
+    log('VERBOSE', `Pexels pagination: start=${start}, count=${count}, page=${page}`);
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${page}&orientation=${orientation}`;
     log('INFO', `Fetching Pexels metadata: ${url}`);
     https.get(url, {
       headers: {
@@ -147,7 +156,7 @@ function getPexelsMetadata(count = 30, orientation = 'landscape', query, start =
 
 // Metadata endpoint
 fastify.get('/api/images/metadata', async (request, reply) => {
-  const { count = 30, orientation = 'landscape', query = IMAGE_QUERY, start = 0 } = request.query;
+  const { count = METADATA_COUNT, orientation = 'landscape', query = IMAGE_QUERY, start = 0 } = request.query;
   log('INFO', `Metadata request: count=${count}, orientation=${orientation}, query=${query}, start=${start}`);
 
   if (PROVIDER === 'local') {
@@ -224,7 +233,9 @@ fastify.get('/api/config', async (request, reply) => {
   reply.send({
     provider: PROVIDER,
     imageInterval: IMAGE_INTERVAL,
-    imageQuery: IMAGE_QUERY
+    imageQuery: IMAGE_QUERY,
+    metadataCount: METADATA_COUNT,
+    prefetchCount: PREFETCH_COUNT
   });
 });
 

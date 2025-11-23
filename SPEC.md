@@ -15,26 +15,21 @@ The application provides a unified command control experience across devices: de
 ### Image Display
 - Images must be displayed full-screen, covering the entire viewport
 - Images should maintain their aspect ratio while filling the screen (object-fit: cover)
-- Background color should match the dominant color of the displayed image (provided by image provider API)
 - Transitions between images should be smooth (e.g. a quick fade effect)
 - Double buffering should be used to preload the next image in a hidden element before fading it in, preventing black screens during transitions.
 - Hardware acceleration hints (will-change) should be used to improve performance on lower-end devices (e.g., TVs).
-- Application should attempt to enter full-screen mode automatically after the first image loads.
 - Full-screen mode can be toggled by double-clicking anywhere on the screen (except interactive elements).
 - Attribution can be toggled by single-clicking anywhere on the screen (except interactive elements).
 
-### Auto-Advance
+### Navigation
+- Users can navigate to the next/previous image using keyboard shortcuts
 - Images should automatically advance every 30 seconds (default, configurable)
 - Timer should reset when user manually navigates
 - Auto-advance should continue in offline mode
-
-### Navigation
-- Users can navigate to the next image using keyboard shortcuts
-- Users can navigate to the previous image using keyboard shortcuts
 - Navigation should work in both online and offline modes
 
 ### Search Functionality
-- Users can change the search query for images by pressing the `S` key (disabled for local provider)
+- Users can change the search query for images (disabled for local provider)
 - A search dialog appears at the top center of the screen with modern styling
 - The dialog shows the current search query and allows editing
 - Press Enter to confirm the new search term
@@ -42,7 +37,7 @@ The application provides a unified command control experience across devices: de
 - When the search query changes, the application attempts to fetch new images with the new query
 - If the new query returns results, the loading screen is displayed while metadata and cache are reset and new images are fetched
 - If the new query returns no results, a warning message is displayed and the application reverts to the previous query without showing the loading screen
-- Search functionality is only available for Unsplash and Pexels providers
+- Search functionality is only available for Unsplash and Pexels providers (local provider ignores search)
 
 ### Orientation Handling
 - Application automatically detects viewport orientation (landscape or portrait)
@@ -58,11 +53,11 @@ The application provides a unified command control experience across devices: de
 - Attribution overlay should auto-hide after 5 seconds the attribution being displayed
 - If the attribution overlay is visible when the image changes, it should remain visible, update its content immediately, and reset the auto-hide timer (5 seconds).
 - Users can toggle attribution visibility manually
-- Attribution should be hidden if no photographer information is available
+- Attribution should be hidden if no information is available (e.g., local provider)
 
 ### Offline Mode
-- Application should detect when it cannot fetch new images
-- In offline mode, display an "OFFLINE" indicator in the top-right corner
+- Application should detect when it cannot fetch new images (e.g., due to network issues)
+- In offline mode, display an offline indicator (icon-only, subtle) in the top-right corner
 - Offline mode should cycle through previously prefetched images (locally available in the browser cache)
 - Navigation should work within the offline image set
 - Offline detection occurs when image fetches fail (e.g., during prefetching or display loading), as this happens more frequently than metadata fetches. Metadata fetch failures may also trigger offline mode as a fallback.
@@ -71,13 +66,13 @@ The application provides a unified command control experience across devices: de
 ### Image Prefetching
 - Application should prefetch upcoming images by fetching their URLs
 - Browser HTTP caching will ensure instant loading when images are displayed
-- On initial page load, fetch metadata for 30 images (indices 0-29) and prefetch images 0-2 (at least 3 ahead)
+- On initial page load, fetch metadata for 30 images (indices 0-29) and prefetch images 0-2 (current + 2 ahead)
 - As the user navigates forward, maintain at least 3 prefetched images ahead of the current display
 - When nearing the end of the current metadata batch (e.g., displaying image 28), fetch the next batch of 30 metadata (indices 30-59) and continue prefetching
 - Prefetching should not occur in offline mode; instead, cycle through previously prefetched images
 - Prefetching works by programmatically creating `<img>` elements in the DOM with the image URLs, forcing the browser to download and cache them via HTTP. 
   - This differs from metadata fetching, which retrieves JSON data (e.g., 30 items at a time) without downloading the actual image files. 
-  - Metadata is lightweight and fetched in batches to populate the image list, while images are prefetched individually (current + 3 ahead) for instant display.
+  - Metadata is lightweight and fetched in batches to populate the image list, while images are prefetched individually for instant display.
   - The Metadata API is rate-limited, while the image endpoints are not. That’s why we request a batch of 30 images per API call. For instance, the Unsplash API limits requests to 50 calls per hour.
 
 ## User Interface
@@ -85,37 +80,27 @@ The application provides a unified command control experience across devices: de
 ### Layout
 - Single-page application with no visible navigation elements
 - Full-screen image container
-- Attribution overlay (bottom-left, initially hidden)
+- Attribution overlay (bottom-left or bottom-right, alternated, initially hidden)
 - Offline indicator (top-right, only visible in offline mode)
-- Search dialog (top-center, only visible when activated)
+- Search dialog (top-center, initially hidden)
 
-### Keyboard Controls
-- `N` or `→` (right arrow): Next image
-- `P` or `←` (left arrow): Previous image
-- `A` or `Space`: Toggle attribution visibility
-- `S` or `5`: Open search dialog to change search query (disabled for local provider)
-- `F`: Toggle fullscreen mode
-
-### Mouse Controls
-- Wheel up/down: Navigate to previous/next image
-- Single click: Toggle attribution visibility
-- Double click: Toggle fullscreen mode
+### Keyboard Controls / Remote Control (on TVs)
+- `→` (right arrow): Next image
+- `←` (left arrow): Previous image
+- `↓` (down arrow): Toggle attribution visibility
+- `↑` (up arrow): Open search dialog to change search query (disabled for local provider)
 
 ### Touch Controls
 - Swipe left: Next image
 - Swipe right: Previous image
 - Single tap: Toggle attribution visibility
 - Double tap: Toggle fullscreen mode
-
-### Remote Control
-- Arrow keys: Navigate to previous/next image
-- Enter/OK: Toggle attribution visibility
-- Number 5: Open search dialog (disabled for local provider)
+- Single tap on upper part of screen: Open search dialog (disabled for local provider)
 
 ### Visual Design
 - Clean, minimal interface
 - Attribution card with semi-transparent black background
-- Subtler offline indicator
+- Subtle offline indicator (icon-only)
 - The application needs to run on both totems and TVs, so the text must remain readable from a reasonable distance without being so large that it distracts from the images.
 - Smooth transitions and animations (using CSS)
 
@@ -130,18 +115,20 @@ The application supports multiple image providers that can be selected at config
 - Useful for development, testing, or offline scenarios
 
 ### Unsplash Provider
-- Fetches images from Unsplash API (https://unsplash.com/developers)
+- Fetches images from `/search/photos` endpoint of Unsplash API (https://unsplash.com/documentation#search-photos)
 - Requires `UNSPLASH_ACCESS_KEY` environment variable
 - Provides full photographer attribution, location, and creation date information
-- Supports landscape orientation preference and search queries
+- Supports pagination (1-indexed `page` parameter), orientation preference and search queries
 - May be passed a search query (e.g. "mountains", or "Norway")
+- Pagination is calculated from the `start` parameter: `page = floor(start / count) + 1`
 
 ### Pexels Provider
-- Fetches images from Pexels API (https://www.pexels.com/api/)
+- Fetches images from `/v1/search` endpoint of Pexels API (https://www.pexels.com/api/documentation/#photos-search)
 - Requires `PEXELS_API_KEY` environment variable
 - Provides photographer attribution and creation information
-- Supports orientation preference and search queries
+- Supports pagination (1-indexed `page` parameter), orientation preference and search queries
 - May be passed a search query (e.g. "mountains", or "Norway")
+- Pagination is calculated from the `start` parameter: `page = floor(start / count) + 1`
 
 ## API Endpoints
 
@@ -152,6 +139,8 @@ The application supports multiple image providers that can be selected at config
   - `provider`: Current image provider (local, unsplash, or pexels)
   - `imageInterval`: Auto-advance interval in seconds
   - `imageQuery`: Current search query for images
+  - `metadataCount`: Number of metadata items retrieved per API call
+  - `prefetchCount`: Number of images to prefetch ahead of the current image
 
 ### Image Metadata Endpoint
 - **Path**: `/api/images/metadata`
@@ -191,7 +180,6 @@ The application supports multiple image providers that can be selected at config
 ### Responsiveness
 - Interface should remain responsive during image loading
 - Navigation should be immediate (no loading delays for cached images)
-- Auto-advance should not be interrupted by loading states
 
 ## Error Handling
 
@@ -224,6 +212,8 @@ The application supports multiple image providers that can be selected at config
   - `THEWALL_LOCAL_FOLDER`: path of images when using `local` provider.
   - `THEWALL_IMAGE_INTERVAL`: interval, in seconds, to auto-advance the next image (default: 30 seconds)
   - `THEWALL_IMAGE_QUERY`: string to use in the `query` parameter of the external providers APIs (default: 'nature')
+  - `THEWALL_METADATA_COUNT`: number of metadata items to retrieve per API call (default: 30)
+  - `THEWALL_PREFETCH_COUNT`: number of images to prefetch ahead of the current image (default: 2)
 - Environment variables required for external providers
   - `UNSPLASH_ACCESS_KEY` for Unsplash
   - `PEXELS_API_KEY` for Pexels
@@ -236,37 +226,42 @@ The application supports multiple image providers that can be selected at config
 
 ### Testing
 - API endpoints should be testable independently
-- Image loading and caching should be verifiable
+- Image loading, prefetching and caching should be verifiable
 - Navigation and offline mode should be testable
 
 ## Appendix: Example Application Behavior
 
 The following table illustrates the expected behavior of the application during a sample execution sequence. It shows how the displayed image index changes, offline status toggles, metadata cache expands, and prefetching progresses.
 
-| Action    | Display Image | Offline | Metadata Cache | Prefetched Images |
-|-----------|---------------|---------|----------------|-------------------|
-| Page Load | 0             | false   | 0..29          | 0..2              |
-| NEXT      | 1             | false   | 0..29          | 0..3              |
-| NEXT      | 2             | false   | 0..29          | 0..4              |
-| NET FAIL  | 2             | true    | 0..29          | 0..4              |
-| NEXT      | 3             | true    | 0..29          | 0..4              |
-| NEXT      | 4             | true    | 0..29          | 0..4              |
-| NEXT      | 0             | true    | 0..29          | 0..4              |
-| NEXT      | 1             | true    | 0..29          | 0..4              |
-| NEXT      | 2             | true    | 0..29          | 0..4              |
-| NEXT      | 3             | true    | 0..29          | 0..4              |
-| NEXT      | 4             | true    | 0..29          | 0..4              |
-| ONLINE    | 4             | false   | 0..29          | 0..6              |
-| NEXT      | 5             | false   | 0..29          | 0..7              |
-| NEXT      | 6             | false   | 0..29          | 0..8              |
-| NEXT      | 7             | false   | 0..29          | 0..9              |
-| ...       | ...           | ...     | ...            | ...               |
-| NEXT      | 26            | false   | 0..29          | 0..28             |
-| NEXT      | 27            | false   | 0..29          | 0..29             |
-| NEXT      | 28            | false   | 0..59          | 0..30             |
-| NEXT      | 29            | false   | 0..59          | 0..31             |
-| NEXT      | 30            | false   | 0..59          | 0..32             |
-| NEXT      | 31            | false   | 0..59          | 0..33             |
-| NEXT      | 32            | false   | 0..59          | 0..34             |
+This sequence is built with the default configuration parameters: `THEWALL_METADATA_COUNT=30` (number of metadata items retrieved per API call) and `THEWALL_PREFETCH_COUNT=2` (number of images prefetched ahead of the current image).
 
-Note: Ranges like `0..4` represent the sequence of integers 0, 1, 2, 3, 4. In offline mode, navigation cycles through prefetched images. When online, prefetching expands dynamically, and metadata is fetched in batches of 30 when nearing the end.
+| Action    | Display Image | Offline | Metadata Cache        | Prefetched Images |
+|-----------|---------------|---------|-----------------------|-------------------|
+| Page Load | 0             | false   | 0..29                 | 0..2              |
+| NEXT      | 1             | false   | 0..29                 | 0..3              |
+| NEXT      | 2             | false   | 0..29                 | 0..4              |
+| NET FAIL  | 2             | true    | 0..29                 | 0..4              |
+| NEXT      | 3             | true    | 0..29                 | 0..4              |
+| NEXT      | 4             | true    | 0..29                 | 0..4              |
+| NEXT      | 0             | true    | 0..29                 | 0..4              |
+| NEXT      | 1             | true    | 0..29                 | 0..4              |
+| NEXT      | 2             | true    | 0..29                 | 0..4              |
+| NEXT      | 3             | true    | 0..29                 | 0..4              |
+| NEXT      | 4             | true    | 0..29                 | 0..4              |
+| ONLINE    | 4             | false   | 0..29                 | 0..6              |
+| NEXT      | 5             | false   | 0..29                 | 0..7              |
+| NEXT      | 6             | false   | 0..29                 | 0..8              |
+| NEXT      | 7             | false   | 0..29                 | 0..9              |
+| ...       | ...           | ...     | ...                   | ...               |
+| NEXT      | 26            | false   | 0..29                 | 0..28             |
+| NEXT      | 27            | false   | 0..29                 | 0..29             |
+| NEXT      | 28            | false   | 0..59 (fetch 30 more) | 0..30             |
+| NEXT      | 29            | false   | 0..59                 | 0..31             |
+| NEXT      | 30            | false   | 0..59                 | 0..32             |
+| NEXT      | 31            | false   | 0..59                 | 0..33             |
+| NEXT      | 32            | false   | 0..59                 | 0..34             |
+
+Notes:
+ - Ranges like `0..4` represent the sequence of integers 0, 1, 2, 3, 4. 
+ - In offline mode, navigation cycles through prefetched images. 
+ - When online, prefetching expands dynamically, and metadata is fetched in batches of 30 when nearing the end.

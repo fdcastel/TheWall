@@ -13,6 +13,8 @@ class TheWall {
     this.provider = 'local'; // default, will be overridden by config
     this.imageQuery = 'nature'; // default, will be overridden by config
     this.previousImageQuery = 'nature'; // store previous query for fallback
+    this.metadataCount = 30; // default, will be overridden by config
+    this.prefetchCount = 2; // default, will be overridden by config
     this.firstImageLoaded = false;
     this.currentOrientation = this.getOrientation();
 
@@ -115,14 +117,17 @@ class TheWall {
       this.provider = config.provider;
       this.imageInterval = config.imageInterval;
       this.imageQuery = config.imageQuery;
-      console.log(`Config loaded: provider=${this.provider}, interval=${this.imageInterval}s, query=${this.imageQuery}`);
+      this.metadataCount = config.metadataCount;
+      this.prefetchCount = config.prefetchCount;
+      console.log(`Config loaded: provider=${this.provider}, interval=${this.imageInterval}s, query=${this.imageQuery}, metadataCount=${this.metadataCount}, prefetchCount=${this.prefetchCount}`);
     } catch (err) {
       console.error(`Config load failed: ${err.message}`);
       // Use defaults already set in constructor
     }
   }
 
-  async loadMetadata(count = 30, isSearchChange = false) {
+  async loadMetadata(count = null, isSearchChange = false) {
+    if (count === null) count = this.metadataCount;
     console.log(`Loading metadata with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
       const response = await fetch(`/api/images/metadata?count=${count}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
@@ -396,7 +401,7 @@ class TheWall {
     const nextStart = this.metadata.length;
     console.log(`Loading more metadata starting from ${nextStart} with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
-      const response = await fetch(`/api/images/metadata?count=30&start=${nextStart}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
+      const response = await fetch(`/api/images/metadata?count=${this.metadataCount}&start=${nextStart}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
       if (!response.ok) throw new Error('Failed to load more metadata');
       const data = await response.json();
       this.metadata.push(...data.images);
@@ -582,7 +587,7 @@ class TheWall {
     this.currentOfflineIndex = null;
 
     // Reload metadata
-    await this.loadMetadata(30, isSearchChange);
+    await this.loadMetadata(this.metadataCount, isSearchChange);
 
     // Restart auto-advance and display first image
     this.startAutoAdvance();
@@ -619,7 +624,7 @@ class TheWall {
 
   prefetchImages() {
     if (this.offline) return;
-    const prefetchCount = 3;
+    const prefetchCount = this.prefetchCount + 1; // current + N ahead
     for (let i = 0; i < prefetchCount; i++) {
       const index = (this.currentIndex + i) % this.metadata.length;
       if (this.prefetched.has(index)) continue;

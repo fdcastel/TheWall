@@ -106,4 +106,36 @@ test('TheWall behavior matches appendix sequence', async ({ page }) => {
   // Verify normal navigation
   await page.keyboard.press('N');
   await waitForLog(/Next image: /);
+  
+  // Additional test: Verify pagination works correctly (no image repetition)
+  // Navigate through 35+ images to ensure we cross the metadata batch boundary
+  // and verify that images don't repeat after 30 items
+  const displayedUrls = new Set();
+  
+  // Reset to beginning
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press('P');
+    await page.waitForTimeout(100);
+  }
+  
+  // Navigate forward and collect URLs
+  for (let i = 0; i < 35; i++) {
+    const currentUrl = await page.evaluate(() => {
+      return window.theWall.metadata[window.theWall.currentIndex]?.url;
+    });
+    
+    if (currentUrl) {
+      if (displayedUrls.has(currentUrl)) {
+        throw new Error(`Image URL repeated at index ${i}: ${currentUrl}`);
+      }
+      displayedUrls.add(currentUrl);
+    }
+    
+    if (i < 34) { // Don't advance on the last iteration
+      await page.keyboard.press('N');
+      await page.waitForTimeout(200);
+    }
+  }
+  
+  console.log(`Successfully verified ${displayedUrls.size} unique images without repetition`);
 });
