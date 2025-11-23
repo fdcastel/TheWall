@@ -130,14 +130,14 @@ class TheWall {
       const data = await response.json();
       this.metadata = data.images;
       console.log(`Loaded ${this.metadata.length} metadata items`);
-      
+
       // If this is a search change and we have results, show loading screen
       if (isSearchChange && this.metadata.length > 0) {
         this.loadingScreen.style.display = 'flex';
         this.loadingScreen.classList.remove('fade-out');
         this.firstImageLoaded = false; // Reset to trigger loading screen hide
       }
-      
+
       // Check if no images were found
       if (this.metadata.length === 0) {
         console.warn(`No images found for query "${this.imageQuery}", reverting to previous query "${this.previousImageQuery}"`);
@@ -147,7 +147,7 @@ class TheWall {
         await this.loadMetadata(count, false);
         return;
       }
-      
+
       this.setOffline(false);
     } catch (err) {
       console.error(`Metadata load failed: ${err.message}`);
@@ -237,7 +237,7 @@ class TheWall {
       // Don't process touches on interactive elements (links, inputs, buttons)
       const target = e.target;
       if (target.tagName === 'A' || target.tagName === 'INPUT' || target.tagName === 'BUTTON' ||
-          target.closest('a') || target.closest('#search-dialog') || target.closest('#attribution')) {
+        target.closest('a') || target.closest('#search-dialog') || target.closest('#attribution')) {
         return;
       }
 
@@ -249,10 +249,10 @@ class TheWall {
       const deltaTime = Date.now() - this.touchStartTime;
       const absDeltaX = Math.abs(deltaX);
       const absDeltaY = Math.abs(deltaY);
-      
+
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      
+
       if (absDeltaX > 50 && absDeltaX > absDeltaY) {
         // Swipe
         if (deltaX > 0) this.prevImage();
@@ -272,7 +272,7 @@ class TheWall {
             const rightZone = viewportWidth * 0.8;
             const topZone = viewportHeight * 0.2;
             const bottomZone = viewportHeight * 0.8;
-            
+
             if (touchEndX < leftZone) {
               // Left 20% - previous image
               this.prevImage();
@@ -323,10 +323,10 @@ class TheWall {
     if (this.metadata.length === 0) return;
     const image = this.metadata[this.currentIndex];
     console.log(`Displaying image ${this.currentIndex}: ${image.url}`);
-    
+
     // Handle attribution visibility during transition
     const isAttributionVisible = !this.attributionElement.classList.contains('hidden');
-    
+
     if (isAttributionVisible) {
       // If visible, keep it visible but clear the hide timeout so it doesn't disappear mid-transition
       if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
@@ -336,31 +336,31 @@ class TheWall {
       if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
       if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
     }
-    
+
     const activeImg = this.imageElements[this.activeImageIndex];
     const nextIndex = (this.activeImageIndex + 1) % 2;
     const nextImg = this.imageElements[nextIndex];
 
     // Load new image into next element
     nextImg.src = image.url;
-    
+
     nextImg.onload = () => {
       console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
-      
+
       // Hide loading screen on first image load
       if (!this.firstImageLoaded) {
         this.firstImageLoaded = true;
         this.loadingScreen.classList.add('fade-out');
         setTimeout(() => {
           this.loadingScreen.style.display = 'none';
-        }, 800); 
+        }, 800);
       }
-      
+
       // Swap active classes for crossfade
       nextImg.classList.add('active');
       activeImg.classList.remove('active');
       this.activeImageIndex = nextIndex;
-      
+
       // Schedule attribution to show after 5 seconds
       this.scheduleAttribution(image);
     };
@@ -369,9 +369,9 @@ class TheWall {
       console.error(`Image load failed ${this.currentIndex}: ${image.url}`);
       this.setOffline(true);
     };
-    
+
     document.body.style.backgroundColor = image.color || '#000';
-    
+
     // Check connectivity if offline
     if (this.offline) {
       fetch('/api/ping').then(response => {
@@ -387,7 +387,7 @@ class TheWall {
     this.prefetchImages();
 
     // Fetch more metadata if nearing the end
-    if (!this.offline && this.currentIndex >= this.metadata.length - 3 && this.metadata.length < 47) { // assuming max 47
+    if (!this.offline && this.currentIndex >= this.metadata.length - 3) { // infinite scrolling
       this.loadMoreMetadata();
     }
   }
@@ -411,19 +411,19 @@ class TheWall {
     if (!image.user || !image.user.name) {
       return;
     }
-    
+
     // Build photographer name with link and provider attribution
     let photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
-    
+
     // Add provider attribution for Unsplash and Pexels
     if (this.provider === 'unsplash') {
       photographerHTML += ` <span class="provider-attribution">on <a href="https://unsplash.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></span>`;
     } else if (this.provider === 'pexels') {
       photographerHTML += ` <span class="provider-attribution">on <a href="https://www.pexels.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Pexels</a></span>`;
     }
-    
+
     this.attributionPhotographer.innerHTML = photographerHTML;
-    
+
     // Build details (location and date)
     let details = [];
     if (image.location && image.location.name) {
@@ -431,14 +431,14 @@ class TheWall {
     }
     if (image.created_at) {
       const date = new Date(image.created_at);
-      const formattedDate = date.toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
+      const formattedDate = date.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric'
       });
       details.push(formattedDate);
     }
     this.attributionDetails.innerHTML = details.join(' · ');
-    
+
     // Logic for showing/hiding attribution
     if (!this.attributionElement.classList.contains('hidden')) {
       // It is currently visible (kept visible from displayImage)
@@ -453,7 +453,7 @@ class TheWall {
       if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
       this.attributionShowTimeout = setTimeout(() => {
         this.attributionElement.classList.remove('hidden');
-        
+
         // Hide attribution 5 seconds after showing
         if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
         this.attributionHideTimeout = setTimeout(() => {
@@ -485,10 +485,10 @@ class TheWall {
 
   setOffline(isOffline) {
     if (this.offline === isOffline) return;
-    
+
     this.offline = isOffline;
     console.log(`Offline mode set to: ${this.offline}`);
-    
+
     if (this.offline) {
       // When going offline, cycle through currently prefetched images
       this.offlineImages = Array.from(this.prefetched).sort((a, b) => a - b);
@@ -518,7 +518,7 @@ class TheWall {
     console.log('Opening search dialog');
     this.searchInput.value = this.imageQuery;
     this.searchDialog.classList.remove('hidden');
-    
+
     // Add blur event listener to close dialog when input loses focus
     const blurHandler = () => {
       // Small delay to allow Enter key to be processed first
@@ -530,7 +530,7 @@ class TheWall {
       this.searchInput.removeEventListener('blur', blurHandler);
     };
     this.searchInput.addEventListener('blur', blurHandler);
-    
+
     setTimeout(() => {
       this.searchInput.focus();
       this.searchInput.select();
@@ -563,27 +563,27 @@ class TheWall {
 
   async resetMetadataAndCache(showLoading = true, isSearchChange = false) {
     console.log('Resetting metadata and cache');
-    
+
     if (showLoading) {
       // Show loading screen
       this.loadingScreen.style.display = 'flex';
       this.loadingScreen.classList.remove('fade-out');
       this.firstImageLoaded = false; // Reset to trigger loading screen hide
     }
-    
+
     // Stop auto-advance during reset
     this.stopAutoAdvance();
-    
+
     // Clear existing data
     this.metadata = [];
     this.prefetched.clear();
     this.currentIndex = 0;
     this.offlineImages = null;
     this.currentOfflineIndex = null;
-    
+
     // Reload metadata
     await this.loadMetadata(30, isSearchChange);
-    
+
     // Restart auto-advance and display first image
     this.startAutoAdvance();
     this.displayImage();
