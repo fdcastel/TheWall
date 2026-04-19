@@ -72,13 +72,7 @@ docker run -d --name thewall -p 3000:3000 \
 Scripts from `package.json`:
 - `npm start` — run `node server.js`
 - `npm run dev` — run `node server.js` (same as start here)
-- `npm test` — runs Jest tests
-- `npm run test:e2e` — runs Playwright tests
-- `npm run test:unit` — runs unit tests
-
-Testing
-- Unit tests: `npm run test:unit`
-- E2E tests: `npm run test`
+- `npm test` — runs Playwright E2E tests
 
 Notes and links
 - See `SPEC.md` for a complete specification of expected behavior.

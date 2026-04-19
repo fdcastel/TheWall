@@ -1,6 +1,6 @@
 {
   "name": "thewall",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "TheWall image slideshow application",
   "main": "server.js",
   "scripts": {
@@ -9,6 +9,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "@fastify/static": "^6.12.0",
     "fastify": "^4.24.3"
   },
   "devDependencies": {

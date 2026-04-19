@@ -22,7 +22,11 @@ RUN mkdir -p ./samples
 EXPOSE 3000
 
 # Set default environment variables
-ENV THEWALL_PROVIDER=unsplash
+# Default to the local provider so `docker run ... thewall` gives a working
+# demo out-of-the-box. Switch to `unsplash`/`pexels` and supply the matching
+# API key env var to use the external providers.
+ENV THEWALL_PROVIDER=local
+ENV THEWALL_LOCAL_FOLDER=/app/samples
 ENV THEWALL_IMAGE_INTERVAL=30
 ENV THEWALL_IMAGE_QUERY=nature
 ENV PORT=3000

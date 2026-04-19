@@ -125,12 +125,12 @@ The application supports multiple image providers that can be selected at config
 - Useful for development, testing, or offline scenarios
 
 ### Unsplash Provider
-- Fetches images from `/search/photos` endpoint of Unsplash API (https://unsplash.com/documentation#search-photos)
+- Fetches images from the `/photos/random` endpoint of the Unsplash API (https://unsplash.com/documentation#get-a-random-photo)
 - Requires `UNSPLASH_ACCESS_KEY` environment variable
 - Provides full photographer attribution, location, and creation date information
-- Supports pagination (1-indexed `page` parameter), orientation preference and search queries
+- Supports orientation preference and search queries
 - May be passed a search query (e.g. "mountains", or "Norway")
-- Pagination is calculated from the `start` parameter: `page = floor(start / count) + 1`
+- **No pagination**: the `/photos/random` endpoint returns a fresh random batch on each call. We use this endpoint instead of `/search/photos` because `/search/photos` does not return the `location` field for each photo, which is required for attribution. The `start` parameter is ignored for this provider.
 
 ### Pexels Provider
 - Fetches images from `/v1/search` endpoint of Pexels API (https://www.pexels.com/api/documentation/#photos-search)

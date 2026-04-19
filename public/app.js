@@ -39,7 +39,6 @@ class TheWall {
     this.touchStartY = 0;
     this.touchStartTime = 0;
     this.lastTapTime = 0;
-    this.lastClickTime = 0;
     this.clickTimeout = null;
     this.lastTouchTime = 0;
 
@@ -100,13 +99,19 @@ class TheWall {
   }
 
   setupOrientationListener() {
+    // Debounce: dragging a window edge fires many resize events, each of which
+    // would otherwise hit the provider API and risk rate-limiting.
+    let resizeTimeout = null;
     window.addEventListener('resize', () => {
-      const newOrientation = this.getOrientation();
-      if (newOrientation !== this.currentOrientation && this.provider !== 'local') {
-        console.log(`Orientation changed from ${this.currentOrientation} to ${newOrientation}`);
-        this.currentOrientation = newOrientation;
-        this.resetMetadataAndCache(true, false);
-      }
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const newOrientation = this.getOrientation();
+        if (newOrientation !== this.currentOrientation && this.provider !== 'local') {
+          console.log(`Orientation changed from ${this.currentOrientation} to ${newOrientation}`);
+          this.currentOrientation = newOrientation;
+          this.resetMetadataAndCache(true, false);
+        }
+      }, 200);
     });
   }
 
@@ -389,8 +394,8 @@ class TheWall {
 
     this.prefetchImages();
 
-    // Fetch more metadata if nearing the end
-    if (!this.offline && this.currentIndex >= this.metadata.length - 3) { // infinite scrolling
+    // Fetch more metadata if nearing the end (spec Appendix: fire at length - 2)
+    if (!this.offline && this.currentIndex >= this.metadata.length - 2) {
       this.loadMoreMetadata();
     }
   }
