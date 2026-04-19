@@ -17,6 +17,7 @@ class TheWall {
     this.metadataCount = 30; // default, will be overridden by config
     this.prefetchCount = 2; // default, will be overridden by config
     this.firstImageLoaded = false;
+    this.loadingMore = false;
     this.currentOrientation = this.getOrientation();
 
     this.imageElements = [
@@ -353,14 +354,7 @@ class TheWall {
     nextImg.onload = () => {
       console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
 
-      // Hide loading screen on first image load
-      if (!this.firstImageLoaded) {
-        this.firstImageLoaded = true;
-        this.loadingScreen.classList.add('fade-out');
-        setTimeout(() => {
-          this.loadingScreen.style.display = 'none';
-        }, 800);
-      }
+      this.dismissLoadingScreen();
 
       // Swap active classes for crossfade
       nextImg.classList.add('active');
@@ -373,6 +367,9 @@ class TheWall {
 
     nextImg.onerror = () => {
       console.error(`Image load failed ${this.currentIndex}: ${image.url}`);
+      // Dismiss the loading screen even on failure so the UI doesn't hang
+      // waiting for a first image that will never arrive.
+      this.dismissLoadingScreen();
       this.setOffline(true);
     };
 
@@ -398,7 +395,40 @@ class TheWall {
     }
   }
 
+  createSafeLink(href, text) {
+    const a = document.createElement('a');
+    // Allow only http(s) URLs; everything else (including javascript:) is neutered.
+    let safeHref = '#';
+    if (typeof href === 'string') {
+      try {
+        const parsed = new URL(href, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          safeHref = parsed.href;
+        }
+      } catch { /* invalid URL — keep placeholder */ }
+    }
+    a.href = safeHref;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = text;
+    return a;
+  }
+
+  dismissLoadingScreen() {
+    if (this.firstImageLoaded) return;
+    this.firstImageLoaded = true;
+    this.loadingScreen.classList.add('fade-out');
+    setTimeout(() => {
+      this.loadingScreen.style.display = 'none';
+    }, 800);
+  }
+
   async loadMoreMetadata() {
+    if (this.loadingMore) {
+      console.log('loadMoreMetadata skipped: already in flight');
+      return;
+    }
+    this.loadingMore = true;
     const nextStart = this.metadata.length;
     console.log(`Loading more metadata starting from ${nextStart} with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
@@ -410,6 +440,8 @@ class TheWall {
     } catch (err) {
       console.error(`Load more metadata failed: ${err.message}`);
       this.setOffline(true);
+    } finally {
+      this.loadingMore = false;
     }
   }
 
@@ -418,22 +450,33 @@ class TheWall {
       return;
     }
 
-    // Build photographer name with link and provider attribution
-    let photographerHTML = `<a href="${image.user.href}" target="_blank" rel="noopener noreferrer">${image.user.name}</a>`;
+    // Photographer link — provider strings are rendered via textContent and href
+    // is validated against an http(s) allow-list to block `javascript:` payloads.
+    this.attributionPhotographer.replaceChildren();
+    this.attributionPhotographer.appendChild(
+      this.createSafeLink(image.user.href, image.user.name)
+    );
 
-    // Add provider attribution for Unsplash and Pexels
-    if (this.provider === 'unsplash') {
-      photographerHTML += ` <span class="provider-attribution">on <a href="https://unsplash.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></span>`;
-    } else if (this.provider === 'pexels') {
-      photographerHTML += ` <span class="provider-attribution">on <a href="https://www.pexels.com/?utm_source=TheWall&utm_medium=referral" target="_blank" rel="noopener noreferrer">Pexels</a></span>`;
+    if (this.provider === 'unsplash' || this.provider === 'pexels') {
+      const providerSpan = document.createElement('span');
+      providerSpan.className = 'provider-attribution';
+      providerSpan.appendChild(document.createTextNode(' on '));
+      const providerLink = this.provider === 'unsplash'
+        ? this.createSafeLink('https://unsplash.com/?utm_source=TheWall&utm_medium=referral', 'Unsplash')
+        : this.createSafeLink('https://www.pexels.com/?utm_source=TheWall&utm_medium=referral', 'Pexels');
+      providerSpan.appendChild(providerLink);
+      this.attributionPhotographer.appendChild(document.createTextNode(' '));
+      this.attributionPhotographer.appendChild(providerSpan);
     }
 
-    this.attributionPhotographer.innerHTML = photographerHTML;
-
     // Build details (location and date)
-    let details = [];
+    this.attributionDetails.replaceChildren();
+    const detailNodes = [];
     if (image.location && image.location.name) {
-      details.push(`<span class="attribution-location">${image.location.name}</span>`);
+      const locSpan = document.createElement('span');
+      locSpan.className = 'attribution-location';
+      locSpan.textContent = image.location.name;
+      detailNodes.push(locSpan);
     }
     if (image.created_at) {
       const date = new Date(image.created_at);
@@ -441,9 +484,12 @@ class TheWall {
         month: 'long',
         year: 'numeric'
       });
-      details.push(formattedDate);
+      detailNodes.push(document.createTextNode(formattedDate));
     }
-    this.attributionDetails.innerHTML = details.join(' · ');
+    detailNodes.forEach((node, idx) => {
+      if (idx > 0) this.attributionDetails.appendChild(document.createTextNode(' · '));
+      this.attributionDetails.appendChild(node);
+    });
 
     // Logic for showing/hiding attribution
     if (!this.attributionElement.classList.contains('hidden')) {
@@ -499,10 +545,15 @@ class TheWall {
       // When going offline, cycle through currently prefetched images
       this.offlineImages = Array.from(this.prefetched).sort((a, b) => a - b);
       console.log(`Offline mode activated - ${this.offlineImages.length} prefetched images available: [${this.offlineImages.join(', ')}]`);
-      this.currentOfflineIndex = this.offlineImages.indexOf(this.currentIndex);
-      if (this.currentOfflineIndex === -1) {
-        this.currentOfflineIndex = 0;
-        this.currentIndex = this.offlineImages[0] || 0;
+      if (this.offlineImages.length === 0) {
+        // No prefetched images — keep the current index frozen and let nav skip.
+        this.currentOfflineIndex = -1;
+      } else {
+        this.currentOfflineIndex = this.offlineImages.indexOf(this.currentIndex);
+        if (this.currentOfflineIndex === -1) {
+          this.currentOfflineIndex = 0;
+          this.currentIndex = this.offlineImages[0];
+        }
       }
     } else {
       console.log('Offline mode deactivated');
@@ -599,6 +650,10 @@ class TheWall {
   nextImage() {
     if (this.metadata.length === 0) return;
     if (this.offline && this.offlineImages) {
+      if (this.offlineImages.length === 0) {
+        console.log('Next image (offline): no prefetched images, navigation skipped');
+        return;
+      }
       this.currentOfflineIndex = (this.currentOfflineIndex + 1) % this.offlineImages.length;
       this.currentIndex = this.offlineImages[this.currentOfflineIndex];
       console.log(`Next image (offline): ${this.currentIndex}`);
@@ -613,6 +668,10 @@ class TheWall {
   prevImage() {
     if (this.metadata.length === 0) return;
     if (this.offline && this.offlineImages) {
+      if (this.offlineImages.length === 0) {
+        console.log('Previous image (offline): no prefetched images, navigation skipped');
+        return;
+      }
       this.currentOfflineIndex = (this.currentOfflineIndex - 1 + this.offlineImages.length) % this.offlineImages.length;
       this.currentIndex = this.offlineImages[this.currentOfflineIndex];
       console.log(`Previous image (offline): ${this.currentIndex}`);

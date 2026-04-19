@@ -1,18 +1,35 @@
 const fastify = require('fastify')({ logger: true });
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const https = require('https');
+
+// Parse integer env with NaN fallback (preserves 0 instead of rewriting to default).
+function parseIntEnv(value, defaultValue) {
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? defaultValue : parsed;
+}
 
 // Environment variables
 const PROVIDER = process.env.THEWALL_PROVIDER || 'local';
 const LOCAL_FOLDER = process.env.THEWALL_LOCAL_FOLDER || './samples';
-const IMAGE_INTERVAL = parseInt(process.env.THEWALL_IMAGE_INTERVAL) || 30;
+const IMAGE_INTERVAL = parseIntEnv(process.env.THEWALL_IMAGE_INTERVAL, 30);
 const IMAGE_QUERY = process.env.THEWALL_IMAGE_QUERY || 'nature';
-const METADATA_COUNT = parseInt(process.env.THEWALL_METADATA_COUNT) || 30;
-const PREFETCH_COUNT = parseInt(process.env.THEWALL_PREFETCH_COUNT) || 2;
+const METADATA_COUNT = parseIntEnv(process.env.THEWALL_METADATA_COUNT, 30);
+const PREFETCH_COUNT = parseIntEnv(process.env.THEWALL_PREFETCH_COUNT, 2);
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
+
+const LOCAL_FOLDER_RESOLVED = path.resolve(LOCAL_FOLDER);
+
+const EXTENSION_CONTENT_TYPES = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp'
+};
+
+const OUTBOUND_TIMEOUT_MS = 10000;
 
 // Logging function
 function log(level, message) {
@@ -21,18 +38,16 @@ function log(level, message) {
 
 // Get metadata for local provider
 function getLocalMetadata(count = 30, orientation = 'landscape', query = '', start = 0) {
-  const folderPath = path.resolve(LOCAL_FOLDER);
-  log('INFO', `Reading local folder "${folderPath}" for metadata`);
+  log('INFO', `Reading local folder "${LOCAL_FOLDER_RESOLVED}" for metadata`);
   let files;
   try {
-    files = fs.readdirSync(folderPath);
+    files = fs.readdirSync(LOCAL_FOLDER_RESOLVED);
   } catch (err) {
     log('INFO', `Failed to read local folder: ${err.message}`);
     return [];
   }
   // Filter image files
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-  files = files.filter(file => imageExtensions.includes(path.extname(file).toLowerCase()));
+  files = files.filter(file => EXTENSION_CONTENT_TYPES[path.extname(file).toLowerCase()]);
   files.sort(); // alphabetical
 
   const metadata = [];
@@ -54,111 +69,107 @@ function getLocalMetadata(count = 30, orientation = 'landscape', query = '', sta
   return metadata;
 }
 
-// Get metadata for Unsplash provider
-function getUnsplashMetadata(count = 30, orientation = 'landscape', query, start = 0) {
-  return new Promise((resolve, reject) => {
-    if (!UNSPLASH_ACCESS_KEY) {
-      log('ERROR', 'UNSPLASH_ACCESS_KEY not set');
-      resolve([]);
-      return;
-    }
-    // // Unsplash uses 1-indexed pages, calculate page from start
-    // const page = Math.floor(start / count) + 1;
-    // log('VERBOSE', `Unsplash pagination: start=${start}, count=${count}, page=${page}`);
-    // const url = `https://api.unsplash.com/search/photos?per_page=${count}&page=${page}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
-
-    // Search endpoint does not return image location. Uses random endpoint, instead (does not have pagination).
-    const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
-
-    log('INFO', `Fetching Unsplash metadata: ${url}`);
-    https.get(url, { headers: { 'User-Agent': 'TheWall/1.0' } }, (res) => {
+// Perform an HTTPS GET with a hard timeout; resolves to { statusCode, body } or null on failure.
+function httpsGetWithTimeout(url, options) {
+  return new Promise((resolve) => {
+    const req = https.get(url, options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          if (res.statusCode !== 200) {
-            throw new Error(`Unsplash API error: ${res.statusCode}`);
-          }
-          // const response = JSON.parse(data);
-          // const photos = response.results || [];
-
-          const photos = JSON.parse(data);
-
-          const metadata = photos.map((photo, index) => ({
-            id: photo.id,
-            url: photo.urls.raw,
-            color: photo.color,
-            user: {
-              name: photo.user.name,
-              href: photo.user.links.html
-            },
-            created_at: photo.created_at,
-            location: photo.location ? { name: photo.location.name } : { name: null }
-          }));
-          log('VERBOSE', `Fetched ${metadata.length} Unsplash images`);
-          resolve(metadata);
-        } catch (err) {
-          log('ERROR', `Failed to parse Unsplash response: ${err.message}`);
-          resolve([]);
-        }
+      res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
+      res.on('error', (err) => {
+        log('ERROR', `Response error: ${err.message}`);
+        resolve(null);
       });
-    }).on('error', (err) => {
-      log('ERROR', `Failed to fetch Unsplash metadata: ${err.message}`);
-      resolve([]);
+    });
+    req.setTimeout(OUTBOUND_TIMEOUT_MS, () => {
+      log('ERROR', `Upstream request timed out after ${OUTBOUND_TIMEOUT_MS}ms: ${url}`);
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', (err) => {
+      log('ERROR', `Request error: ${err.message}`);
+      resolve(null);
     });
   });
 }
 
-// Get metadata for Pexels provider
-function getPexelsMetadata(count = 30, orientation = 'landscape', query, start = 0) {
-  return new Promise((resolve, reject) => {
-    if (!PEXELS_API_KEY) {
-      log('ERROR', 'PEXELS_API_KEY not set');
-      resolve([]);
-      return;
+// Get metadata for Unsplash provider
+async function getUnsplashMetadata(count = 30, orientation = 'landscape', query, start = 0) {
+  if (!UNSPLASH_ACCESS_KEY) {
+    log('ERROR', 'UNSPLASH_ACCESS_KEY not set');
+    return [];
+  }
+
+  // Search endpoint does not return image location. Uses random endpoint, instead (does not have pagination).
+  const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${UNSPLASH_ACCESS_KEY}`;
+
+  log('INFO', `Fetching Unsplash metadata: ${url}`);
+  const result = await httpsGetWithTimeout(url, { headers: { 'User-Agent': 'TheWall/1.0' } });
+  if (!result) return [];
+  try {
+    if (result.statusCode !== 200) {
+      throw new Error(`Unsplash API error: ${result.statusCode}`);
     }
-    // Pexels uses 1-indexed pages, calculate page from start
-    const page = Math.floor(start / count) + 1;
-    log('VERBOSE', `Pexels pagination: start=${start}, count=${count}, page=${page}`);
-    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${page}&orientation=${orientation}`;
-    log('INFO', `Fetching Pexels metadata: ${url}`);
-    https.get(url, {
-      headers: {
-        'Authorization': PEXELS_API_KEY,
-        'User-Agent': 'TheWall/1.0'
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          if (res.statusCode !== 200) {
-            throw new Error(`Pexels API error: ${res.statusCode}`);
-          }
-          const response = JSON.parse(data);
-          const metadata = response.photos.map((photo, index) => ({
-            id: photo.id.toString(),
-            url: photo.src.original,
-            color: photo.avg_color,
-            user: {
-              name: photo.photographer,
-              href: photo.photographer_url
-            },
-            created_at: null, // Pexels doesn't provide creation date
-            location: { name: null } // Pexels doesn't provide location
-          }));
-          log('VERBOSE', `Fetched ${metadata.length} Pexels images`);
-          resolve(metadata);
-        } catch (err) {
-          log('ERROR', `Failed to parse Pexels response: ${err.message}`);
-          resolve([]);
-        }
-      });
-    }).on('error', (err) => {
-      log('ERROR', `Failed to fetch Pexels metadata: ${err.message}`);
-      resolve([]);
-    });
+    const photos = JSON.parse(result.body);
+    const metadata = photos.map((photo) => ({
+      id: photo.id,
+      url: photo.urls.raw,
+      color: photo.color,
+      user: {
+        name: photo.user.name,
+        href: photo.user.links.html
+      },
+      created_at: photo.created_at,
+      location: photo.location ? { name: photo.location.name } : { name: null }
+    }));
+    log('VERBOSE', `Fetched ${metadata.length} Unsplash images`);
+    return metadata;
+  } catch (err) {
+    log('ERROR', `Failed to parse Unsplash response: ${err.message}`);
+    return [];
+  }
+}
+
+// Get metadata for Pexels provider
+async function getPexelsMetadata(count = 30, orientation = 'landscape', query, start = 0) {
+  if (!PEXELS_API_KEY) {
+    log('ERROR', 'PEXELS_API_KEY not set');
+    return [];
+  }
+  // Pexels uses 1-indexed pages, calculate page from start
+  const page = Math.floor(start / count) + 1;
+  log('VERBOSE', `Pexels pagination: start=${start}, count=${count}, page=${page}`);
+  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${page}&orientation=${orientation}`;
+  log('INFO', `Fetching Pexels metadata: ${url}`);
+  const result = await httpsGetWithTimeout(url, {
+    headers: {
+      'Authorization': PEXELS_API_KEY,
+      'User-Agent': 'TheWall/1.0'
+    }
   });
+  if (!result) return [];
+  try {
+    if (result.statusCode !== 200) {
+      throw new Error(`Pexels API error: ${result.statusCode}`);
+    }
+    const response = JSON.parse(result.body);
+    const metadata = response.photos.map((photo) => ({
+      id: photo.id.toString(),
+      url: photo.src.original,
+      color: photo.avg_color,
+      user: {
+        name: photo.photographer,
+        href: photo.photographer_url
+      },
+      created_at: null, // Pexels doesn't provide creation date
+      location: { name: null } // Pexels doesn't provide location
+    }));
+    log('VERBOSE', `Fetched ${metadata.length} Pexels images`);
+    return metadata;
+  } catch (err) {
+    log('ERROR', `Failed to parse Pexels response: ${err.message}`);
+    return [];
+  }
 }
 
 // Metadata endpoint
@@ -187,19 +198,48 @@ fastify.get('/api/images/metadata', async (request, reply) => {
 fastify.get('/api/images/*', async (request, reply) => {
   const filename = request.params['*'];
   log('INFO', `Serving image: ${filename}`);
-  const filePath = path.join(LOCAL_FOLDER, filename);
-  try {
-    const stat = fs.statSync(filePath);
-    const etag = crypto.createHash('md5').update(fs.readFileSync(filePath)).digest('hex');
-    reply.header('Cache-Control', 'public, max-age=31536000, immutable');
-    reply.header('Content-Type', 'image/jpeg'); // assume jpeg, but could detect
-    reply.header('Content-Length', stat.size);
-    reply.header('Accept-Ranges', 'bytes');
-    reply.send(fs.readFileSync(filePath));
-  } catch (err) {
-    log('INFO', `Failed to serve image ${filename}: ${err.message}`);
-    reply.code(404).send({ error: 'Image not found' });
+
+  // Reject absolute paths outright (Windows `C:\...` or Unix `/...`).
+  if (path.isAbsolute(filename)) {
+    log('INFO', `Rejected absolute path: ${filename}`);
+    return reply.code(404).send({ error: 'Image not found' });
   }
+
+  const resolved = path.resolve(LOCAL_FOLDER_RESOLVED, filename);
+  const rootWithSep = LOCAL_FOLDER_RESOLVED + path.sep;
+  if (resolved !== LOCAL_FOLDER_RESOLVED && !resolved.startsWith(rootWithSep)) {
+    log('INFO', `Rejected path traversal: ${filename} -> ${resolved}`);
+    return reply.code(404).send({ error: 'Image not found' });
+  }
+
+  let stat;
+  try {
+    stat = fs.statSync(resolved);
+  } catch (err) {
+    log('INFO', `Failed to stat image ${filename}: ${err.message}`);
+    return reply.code(404).send({ error: 'Image not found' });
+  }
+  if (!stat.isFile()) {
+    return reply.code(404).send({ error: 'Image not found' });
+  }
+
+  const etag = `"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
+  if (request.headers['if-none-match'] === etag) {
+    reply.header('ETag', etag);
+    reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+    return reply.code(304).send();
+  }
+
+  const ext = path.extname(resolved).toLowerCase();
+  const contentType = EXTENSION_CONTENT_TYPES[ext] || 'application/octet-stream';
+
+  reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+  reply.header('Content-Type', contentType);
+  reply.header('Content-Length', stat.size);
+  reply.header('Accept-Ranges', 'bytes');
+  reply.header('Last-Modified', stat.mtime.toUTCString());
+  reply.header('ETag', etag);
+  return reply.send(fs.createReadStream(resolved));
 });
 
 // Serve static files
