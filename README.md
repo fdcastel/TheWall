@@ -55,13 +55,15 @@ The fastest path to a live instance is the Deploy to Cloudflare button at the to
    - Cloudflare will fork this repository into your GitHub account and open the Workers Builds form pre-configured from [wrangler.toml](wrangler.toml).
 2. **Fill `THEWALL_PROVIDER_KEY` with your Unsplash access key or Pexels API key**.
    - Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
-3. **Clear both the "Production deploy command" and "Non-production branch deploy command" fields.** 
-   - The pre-filled values (`npx wrangler deploy`, `npx wrangler versions upload`) are Workers-only and will fail with an auth error on this Pages project. 
-   - With `pages_build_output_dir = "public"` set in [wrangler.toml](wrangler.toml), Cloudflare uploads the build output automatically — no deploy command is needed. 
-   - Unfortunately, Cloudflare has no way to preset empty commands from `wrangler.toml`, so this has to be fixed by hand each time the button is used.
-4. Click **Create and deploy**. 
+3. **Set the "Deploy command" to `npx wrangler pages deploy public`.**
+   - The pre-filled default (`npx wrangler deploy`) is Workers-only and will fail on this Pages project. The field is required, so it can't be left empty.
+   - Cloudflare has no way to preset this from `wrangler.toml`, so it has to be fixed by hand each time the button is used.
+4. **Make sure the build token has Pages permission.**
+   - The auto-created "&lt;project-name&gt; build token" is narrowly scoped and usually lacks `Cloudflare Pages: Edit`, which causes an **Authentication error [code: 10000]** during the deploy step.
+   - Open https://dash.cloudflare.com/profile/api-tokens, edit the build token, and add **Account → Cloudflare Pages → Edit**. Alternatively, select a broader-scope token from the form's "API token" dropdown before clicking Create and deploy.
+5. Click **Create and deploy**. 
    - Your site will be live at `https://<project-name>.pages.dev` once the build finishes.
-5. **Use your own domain** (optional)
+6. **Use your own domain** (optional)
    - open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
 
 Notes:
