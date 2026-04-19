@@ -26,7 +26,7 @@ Ideal for
 - Optimized for devices with limited CPU resources (such as TVs)
 - Keyboard, mouse, touch (gestures) and remote-control support for navigation
 - Prefetching for fast image switches
-- Deployable to Cloudflare Pages (zero-ops) or self-hostable via Docker
+- Deployable to Cloudflare Workers (zero-ops) or self-hostable via Docker
 
 ## Controls
 
@@ -47,30 +47,24 @@ Ideal for
 - Single tap: Toggle attribution
 - Double tap: Toggle fullscreen
 
-## Deploy to Cloudflare Pages (recommended)
+## Deploy to Cloudflare Workers (recommended)
 
 The fastest path to a live instance is the Deploy to Cloudflare button at the top of this README:
 
-1. **Click the button**. 
+1. **Click the button**.
    - Cloudflare will fork this repository into your GitHub account and open the Workers Builds form pre-configured from [wrangler.toml](wrangler.toml).
 2. **Fill `THEWALL_PROVIDER_KEY` with your Unsplash access key or Pexels API key**.
    - Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
-3. **Set the "Deploy command" to `npx wrangler pages deploy public`.**
-   - The pre-filled default (`npx wrangler deploy`) is Workers-only and will fail on this Pages project. The field is required, so it can't be left empty.
-   - Cloudflare has no way to preset this from `wrangler.toml`, so it has to be fixed by hand each time the button is used.
-4. **Make sure the build token has Pages permission.**
-   - The auto-created "&lt;project-name&gt; build token" is narrowly scoped and usually lacks `Cloudflare Pages: Edit`, which causes an **Authentication error [code: 10000]** during the deploy step.
-   - Open https://dash.cloudflare.com/profile/api-tokens, edit the build token, and add **Account → Cloudflare Pages → Edit**. Alternatively, select a broader-scope token from the form's "API token" dropdown before clicking Create and deploy.
-5. Click **Create and deploy**. 
-   - Your site will be live at `https://<project-name>.pages.dev` once the build finishes.
-6. **Use your own domain** (optional)
-   - open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
+3. Click **Create and deploy**.
+   - Your site will be live at `https://<project-name>.<your-subdomain>.workers.dev` once the build finishes.
+4. **Use your own domain** (optional)
+   - Open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
 
 Notes:
-- Provider keys should be set as Cloudflare **Secrets** 
+- Provider keys should be set as Cloudflare **Secrets**.
   - The Workers Builds form does this automatically when you fill them in the dedicated fields.
   - But, if you add them later via **Settings → Variables and Secrets**, choose the **Secret** type rather than plaintext.
-- The `local` provider is **not** supported on Cloudflare Pages — Workers isolates don't have filesystem access.
+- The `local` provider is **not** supported on Cloudflare Workers — Workers isolates don't have filesystem access.
   - Use the Docker path below if you need to serve a local folder of images.
 
 ## Self-host with Docker
@@ -100,9 +94,9 @@ docker run -d --name thewall -p 3000:3000 \
 
 Requires Node.js 24.15.0 or newer.
 
-### Cloudflare Pages runtime (default)
+### Cloudflare Workers runtime (default)
 
-Uses `wrangler pages dev` to emulate the production Cloudflare environment locally.
+Uses `wrangler dev` to emulate the production Cloudflare environment locally.
 
 ```bash
 npm install
@@ -128,21 +122,21 @@ Open http://localhost:3000. Node 24's `--watch --env-file=.dev.vars` flags drive
 | Variable                 | Description                                                                                                         | Default    | Required                    |
 |--------------------------|---------------------------------------------------------------------------------------------------------------------|:----------:|:---------------------------:|
 | `THEWALL_PROVIDER`       | Image provider: `unsplash`, `pexels`, or `local` <br /> _`local` is Docker/Node only_                               | `unsplash` | No                          |
-| `THEWALL_PROVIDER_KEY`   | Unsplash access key / Pexels API key (matching `THEWALL_PROVIDER`) <br /> _Set as a **Secret** on Cloudflare Pages_ | -          | for `unsplash` and `pexels` |
+| `THEWALL_PROVIDER_KEY`   | Unsplash access key / Pexels API key (matching `THEWALL_PROVIDER`) <br /> _Set as a **Secret** on Cloudflare Workers_ | -          | for `unsplash` and `pexels` |
 | `THEWALL_IMAGE_INTERVAL` | Seconds between transitions                                                                                         | `30`       | No                          |
 | `THEWALL_IMAGE_QUERY`    | Search query for external providers                                                                                 | `nature`   | No                          |
 | `THEWALL_METADATA_COUNT` | Number of images to fetch per metadata request                                                                      | `30`       | No                          |
 | `THEWALL_PREFETCH_COUNT` | Number of upcoming images to prefetch                                                                               | `2`        | No                          |
-| `PORT`                   | Server port (Node/Docker only; Pages handles routing)                                                               | `3000`     | No                          |
+| `PORT`                   | Server port (Node/Docker only; Workers handles routing)                                                             | `3000`     | No                          |
 | `THEWALL_LOCAL_FOLDER`   | Path to `local` images                                                                                              | `./samples`| for `local`                 |
 
 ## Development notes
 
 Scripts from [package.json](package.json):
-- `npm run dev` — run the Cloudflare Pages runtime via `wrangler pages dev public`
+- `npm run dev` — run the Cloudflare Workers runtime via `wrangler dev --port 8788`
 - `npm run dev:node` — run the Fastify server with Node 24's `--watch --env-file=.dev.vars`
 - `npm start` — run `node server.js` (used by the Dockerfile)
-- `npm run deploy:pages` — publish to Cloudflare Pages manually via `wrangler pages deploy public` (not needed for the Deploy button / Git-integration flow, which auto-uploads)
+- `npm run deploy` — publish to Cloudflare Workers manually via `wrangler deploy` (not needed for the Deploy button / Git-integration flow, which auto-uploads)
 - `npm test` — runs the Playwright E2E suite (defaults to the wrangler runtime; set `THEWALL_TEST_RUNTIME=node` to run the local-provider tests against Fastify)
 
 Notes and links

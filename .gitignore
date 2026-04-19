@@ -15,7 +15,7 @@ client/node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
-# Wrangler / Cloudflare Pages
+# Wrangler / Cloudflare Workers
 /.wrangler/
 
 /tmp

@@ -8,10 +8,10 @@
     "node": ">=24.15.0"
   },
   "scripts": {
-    "dev": "wrangler pages dev public --compatibility-date=2025-04-01",
+    "dev": "wrangler dev --port 8788",
     "dev:node": "node --watch --env-file=.dev.vars server.js",
     "start": "node server.js",
-    "deploy:pages": "wrangler pages deploy public",
+    "deploy": "wrangler deploy",
     "test": "playwright test"
   },
   "dependencies": {

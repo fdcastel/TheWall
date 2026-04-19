@@ -14,12 +14,12 @@ The application provides a unified command control experience across devices: de
 
 TheWall runs on two supported runtimes from a single ESM codebase:
 
-| Runtime                  | Entrypoints                    | Providers                 | Deployment target         |
-|--------------------------|--------------------------------|---------------------------|---------------------------|
-| Cloudflare Pages         | `functions/api/*.js`           | `unsplash`, `pexels`      | Cloudflare Pages (primary)|
-| Node 24 LTS + Fastify    | `server.js`                    | `unsplash`, `pexels`, `local` | Docker image on GHCR |
+| Runtime                  | Entrypoints                    | Providers                 | Deployment target            |
+|--------------------------|--------------------------------|---------------------------|------------------------------|
+| Cloudflare Workers       | `worker.js` (+ `ASSETS` binding for `public/`) | `unsplash`, `pexels`      | Cloudflare Workers (primary) |
+| Node 24 LTS + Fastify    | `server.js`                    | `unsplash`, `pexels`, `local` | Docker image on GHCR     |
 
-Shared code lives in `providers/` (provider implementations) and `lib/` (env parsing, provider factory). Provider implementations use global `fetch()` and `AbortSignal.timeout()` so they work unmodified on both runtimes. The `local` provider performs filesystem I/O and therefore only runs on the Node/Docker path — `lib/provider.js` throws a clear error if `THEWALL_PROVIDER=local` is selected on Cloudflare Pages.
+Shared code lives in `providers/` (provider implementations) and `lib/` (env parsing, provider factory). Provider implementations use global `fetch()` and `AbortSignal.timeout()` so they work unmodified on both runtimes. The `local` provider performs filesystem I/O and therefore only runs on the Node/Docker path — `lib/provider.js` throws a clear error if `THEWALL_PROVIDER=local` is selected on Cloudflare Workers. On the Workers runtime, the `worker.js` fetch handler routes `/api/*` requests to the relevant provider logic and falls through to the `ASSETS` binding for static files served from `public/`.
 
 Supported Node version: `>= 24.15.0`. The Docker image is based on `node:24-alpine`.
 
@@ -189,7 +189,7 @@ The application supports multiple image providers that can be selected at config
 ### Image Serving Endpoint (Local Provider Only, Docker/Node runtime only)
 - **Path**: `/api/images/{filename}`
 - **Method**: GET
-- **Availability**: Fastify route registered only when `THEWALL_PROVIDER=local`. Not present on the Cloudflare Pages runtime.
+- **Availability**: Fastify route registered only when `THEWALL_PROVIDER=local`. Not present on the Cloudflare Workers runtime.
 - **Description**: Serves individual image files from the local provider folder. Not required for Unsplash or Pexels providers, as images are sourced directly from their APIs.
 - **Response**: The image file with appropriate MIME type.
 - **Path hardening**: The wildcard parameter is rejected if it is an absolute path, and the resolved filesystem path must be equal to or a child of the configured `THEWALL_LOCAL_FOLDER` (path-traversal guard). Any mismatch, missing file, or non-file target returns `404`.
@@ -240,9 +240,9 @@ The application supports multiple image providers that can be selected at config
   - `THEWALL_METADATA_COUNT`: number of metadata items to retrieve per API call (default: 30)
   - `THEWALL_PREFETCH_COUNT`: number of images to prefetch ahead of the current image (default: 2)
 - Environment variables required for external providers
-  - `THEWALL_PROVIDER_KEY` — the provider API key (Unsplash access key or Pexels API key, matching `THEWALL_PROVIDER`). Set as a **Secret** on the Cloudflare Pages runtime; a plain env var on the Docker/Node runtime
+  - `THEWALL_PROVIDER_KEY` — the provider API key (Unsplash access key or Pexels API key, matching `THEWALL_PROVIDER`). Set as a **Secret** on the Cloudflare Workers runtime; a plain env var on the Docker/Node runtime
 - Local provider works without external dependencies, but requires the Docker/Node runtime (filesystem I/O is not available on Workers isolates)
-- On the Node runtime, `node --env-file=.dev.vars` is used to load development secrets; on the Cloudflare Pages runtime, `wrangler pages dev` reads the same `.dev.vars` file
+- On the Node runtime, `node --env-file=.dev.vars` is used to load development secrets; on the Cloudflare Workers runtime, `wrangler dev` reads the same `.dev.vars` file
 
 ### Debugging
 - Debug logging must be complete, both in server as in client. 
@@ -253,9 +253,9 @@ The application supports multiple image providers that can be selected at config
 - API endpoints should be testable independently
 - Image loading, prefetching and caching should be verifiable
 - Navigation and offline mode should be testable
-- End-to-end tests are driven by Playwright. The default runtime is `wrangler pages dev` (Cloudflare Pages path). Local-provider tests — those that exercise the Docker-only `/api/images/*` route — are gated on `THEWALL_TEST_RUNTIME=node` and, when that variable is set, each test spawns its own `node server.js` instance (via the shared helper in `e2e/_server.js`) with the `local` provider on a dedicated port
+- End-to-end tests are driven by Playwright. The default runtime is `wrangler dev` (Cloudflare Workers path). Local-provider tests — those that exercise the Docker-only `/api/images/*` route — are gated on `THEWALL_TEST_RUNTIME=node` and, when that variable is set, each test spawns its own `node server.js` instance (via the shared helper in `e2e/_server.js`) with the `local` provider on a dedicated port
 - Provider-specific tests skip cleanly when `THEWALL_PROVIDER_KEY` is absent, so `npm test` runs without credentials
-- CI (`.github/workflows/test.yml`) runs two jobs on `ubuntu-latest`: a `node` job that runs the local-provider Playwright suite against Fastify, and a `docker` job that builds the image and smoke-tests `/api/ping` and `/api/config`. No API-key secrets are required in CI; the Cloudflare runtime is covered by per-PR Pages preview deployments instead
+- CI (`.github/workflows/test.yml`) runs two jobs on `ubuntu-latest`: a `node` job that runs the local-provider Playwright suite against Fastify, and a `docker` job that builds the image and smoke-tests `/api/ping` and `/api/config`. No API-key secrets are required in CI; the Cloudflare runtime is covered by per-PR Workers preview deployments instead
 
 ## Appendix: Example Application Behavior
 

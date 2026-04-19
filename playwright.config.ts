@@ -3,10 +3,11 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * See https://playwright.dev/docs/test-configuration.
  *
- * Default webServer boots Cloudflare Pages via `wrangler pages dev` so the
- * Functions runtime is exercised. Tests that need a specific provider config
- * (unsplash / pexels) or the Fastify/local-provider runtime boot their own
- * server on port 3100 from inside the test file via `./_server.js`.
+ * Default webServer boots the Workers + Static Assets runtime via `wrangler
+ * dev` so the production code path is exercised. Tests that need a specific
+ * provider config (unsplash / pexels) or the Fastify/local-provider runtime
+ * boot their own server on port 3100 from inside the test file via
+ * `./_server.js`.
  *
  * Local-provider tests (image-content, long-filenames, appendix-sequence,
  * offline-detection, rapid-navigation) are gated on
@@ -35,7 +36,7 @@ export default defineConfig({
   ],
 
   webServer: isNodeRuntime ? undefined : {
-    command: 'npx wrangler pages dev public --compatibility-date=2025-04-01 --port 8788',
+    command: 'npx wrangler dev --port 8788',
     url: 'http://localhost:8788/api/ping',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
