@@ -51,16 +51,25 @@ Ideal for
 
 The fastest path to a live instance is the Deploy to Cloudflare button at the top of this README:
 
-1. Click the button. Cloudflare will fork this repository into your GitHub account and open the Workers Builds form pre-configured from [wrangler.toml](wrangler.toml).
-2. **Fill `THEWALL_PROVIDER_KEY`** with your Unsplash access key or Pexels API key (matching the provider you chose via `THEWALL_PROVIDER`).
+1. **Click the button**. 
+   - Cloudflare will fork this repository into your GitHub account and open the Workers Builds form pre-configured from [wrangler.toml](wrangler.toml).
+2. **Fill `THEWALL_PROVIDER_KEY` with your Unsplash access key or Pexels API key**.
    - Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
-3. **Clear the "Non-production branch deploy command" field** (or replace its default value with `npm run deploy`). The pre-filled `npx wrangler versions upload` is a Workers-only command that won't work for this Pages project. Cloudflare has no way to preset this from `wrangler.toml`, so it has to be fixed by hand each time the button is used.
-4. Click **Create and deploy**. Your site will be live at `https://<project-name>.pages.dev` once the build finishes.
-5. *(Optional)* To use your own domain, open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
+3. **Clear both the "Production deploy command" and "Non-production branch deploy command" fields.** 
+   - The pre-filled values (`npx wrangler deploy`, `npx wrangler versions upload`) are Workers-only and will fail with an auth error on this Pages project. 
+   - With `pages_build_output_dir = "public"` set in [wrangler.toml](wrangler.toml), Cloudflare uploads the build output automatically — no deploy command is needed. 
+   - Unfortunately, Cloudflare has no way to preset empty commands from `wrangler.toml`, so this has to be fixed by hand each time the button is used.
+4. Click **Create and deploy**. 
+   - Your site will be live at `https://<project-name>.pages.dev` once the build finishes.
+5. **Use your own domain** (optional)
+   - open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
 
 Notes:
-- The `local` provider is **not** supported on Cloudflare Pages — Workers isolates don't have filesystem access. Use the Docker path below if you need to serve a local folder of images.
-- Provider keys should be set as Cloudflare **Secrets** (the Workers Builds form does this automatically when you fill them in the dedicated fields). If you add them later via **Settings → Variables and Secrets**, choose the **Secret** type rather than plaintext.
+- Provider keys should be set as Cloudflare **Secrets** 
+  - The Workers Builds form does this automatically when you fill them in the dedicated fields.
+  - But, if you add them later via **Settings → Variables and Secrets**, choose the **Secret** type rather than plaintext.
+- The `local` provider is **not** supported on Cloudflare Pages — Workers isolates don't have filesystem access.
+  - Use the Docker path below if you need to serve a local folder of images.
 
 ## Self-host with Docker
 
@@ -131,7 +140,7 @@ Scripts from [package.json](package.json):
 - `npm run dev` — run the Cloudflare Pages runtime via `wrangler pages dev public`
 - `npm run dev:node` — run the Fastify server with Node 24's `--watch --env-file=.dev.vars`
 - `npm start` — run `node server.js` (used by the Dockerfile)
-- `npm run deploy` — publish to Cloudflare Pages via `wrangler pages deploy public`
+- `npm run deploy:pages` — publish to Cloudflare Pages manually via `wrangler pages deploy public` (not needed for the Deploy button / Git-integration flow, which auto-uploads)
 - `npm test` — runs the Playwright E2E suite (defaults to the wrangler runtime; set `THEWALL_TEST_RUNTIME=node` to run the local-provider tests against Fastify)
 
 Notes and links
