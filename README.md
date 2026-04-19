@@ -34,15 +34,15 @@ TheWall is a full-screen image slideshow web application. It displays high-resol
 
 The fastest path to a live instance is the Deploy to Cloudflare button at the top of this README:
 
-1. Click the button. Cloudflare will fork this repository into your GitHub account and create a Pages project from [wrangler.toml](wrangler.toml).
-2. The first deploy will build successfully but API calls will fail until you add a provider key.
-3. In the Cloudflare dashboard, open your new Pages project → **Settings → Environment variables** and add one of:
-   - `UNSPLASH_ACCESS_KEY` as a **Secret** (if you want the Unsplash provider), or
-   - `PEXELS_API_KEY` as a **Secret** (if you want the Pexels provider).
-4. Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
-5. Trigger a new deployment (Deployments → **Retry deployment** on the latest build).
+1. Click the button. Cloudflare will fork this repository into your GitHub account and open the Workers Builds form pre-configured from [wrangler.toml](wrangler.toml).
+2. **Fill `UNSPLASH_ACCESS_KEY` or `PEXELS_API_KEY`** (whichever provider you picked via `THEWALL_PROVIDER`) in the dedicated field on the form. Leave the other one blank. Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
+3. **Clear the "Non-production branch deploy command" field.** The form's default of `npx wrangler versions upload` is a Workers-only command that won't work for this Pages project — either leave the field empty, or set it to `npm run deploy` to also deploy preview builds for non-production branches.
+4. Click **Create and deploy**. Your site will be live at `https://<project-name>.pages.dev` once the build finishes.
+5. *(Optional)* To use your own domain, open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
 
-Note: the `local` provider is **not** supported on Cloudflare Pages — Workers isolates don't have filesystem access. Use the Docker path below if you need to serve a local folder of images.
+Notes:
+- The `local` provider is **not** supported on Cloudflare Pages — Workers isolates don't have filesystem access. Use the Docker path below if you need to serve a local folder of images.
+- Provider keys should be set as Cloudflare **Secrets** (the Workers Builds form does this automatically when you fill them in the dedicated fields). If you add them later via **Settings → Variables and Secrets**, choose the **Secret** type rather than plaintext.
 
 ## Self-host with Docker
 
