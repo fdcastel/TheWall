@@ -2,7 +2,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 
 export function createPexelsProvider({ apiKey, logger = console }) {
   if (!apiKey) {
-    throw new Error('PEXELS_API_KEY is required for the pexels provider');
+    throw new Error('THEWALL_PROVIDER_KEY is required for the pexels provider');
   }
 
   return {

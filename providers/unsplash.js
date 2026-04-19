@@ -2,7 +2,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 
 export function createUnsplashProvider({ accessKey, logger = console }) {
   if (!accessKey) {
-    throw new Error('UNSPLASH_ACCESS_KEY is required for the unsplash provider');
+    throw new Error('THEWALL_PROVIDER_KEY is required for the unsplash provider');
   }
 
   return {

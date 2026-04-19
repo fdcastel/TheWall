@@ -139,7 +139,7 @@ The application supports multiple image providers that can be selected at config
 
 ### Unsplash Provider
 - Fetches images from the `/photos/random` endpoint of the Unsplash API (https://unsplash.com/documentation#get-a-random-photo)
-- Requires `UNSPLASH_ACCESS_KEY` environment variable
+- Requires `THEWALL_PROVIDER_KEY` environment variable (holding an Unsplash access key)
 - Provides full photographer attribution, location, and creation date information
 - Supports orientation preference and search queries
 - May be passed a search query (e.g. "mountains", or "Norway")
@@ -147,7 +147,7 @@ The application supports multiple image providers that can be selected at config
 
 ### Pexels Provider
 - Fetches images from `/v1/search` endpoint of Pexels API (https://www.pexels.com/api/documentation/#photos-search)
-- Requires `PEXELS_API_KEY` environment variable
+- Requires `THEWALL_PROVIDER_KEY` environment variable (holding a Pexels API key)
 - Provides photographer attribution and creation information
 - Supports pagination (1-indexed `page` parameter), orientation preference and search queries
 - May be passed a search query (e.g. "mountains", or "Norway")
@@ -175,8 +175,7 @@ The application supports multiple image providers that can be selected at config
   - `query` (optional, string, max length 200): Search query for filtering images (ignored for local provider)
 - **Response**: JSON object `{ images: [...] }` with `Cache-Control: no-cache, no-store, must-revalidate`. Provider errors are swallowed and returned as `{ images: [] }` to preserve the front-end's offline/empty contract.
 - **Environment Variables**:
-  - `UNSPLASH_ACCESS_KEY`: Required for Unsplash provider
-  - `PEXELS_API_KEY`: Required for Pexels provider
+  - `THEWALL_PROVIDER_KEY`: Required for Unsplash and Pexels providers (must match the API key type for the selected `THEWALL_PROVIDER`)
 - **Image Metadata Structure** (some fields may be null due absence by provider):
   - `id`: Unique identifier for the image
   - `url`: the image URL for the best quality version available ("raw" in Unsplash, "original" in "Pexels" )
@@ -241,8 +240,7 @@ The application supports multiple image providers that can be selected at config
   - `THEWALL_METADATA_COUNT`: number of metadata items to retrieve per API call (default: 30)
   - `THEWALL_PREFETCH_COUNT`: number of images to prefetch ahead of the current image (default: 2)
 - Environment variables required for external providers
-  - `UNSPLASH_ACCESS_KEY` for Unsplash — set as a **Secret** on the Cloudflare Pages runtime
-  - `PEXELS_API_KEY` for Pexels — set as a **Secret** on the Cloudflare Pages runtime
+  - `THEWALL_PROVIDER_KEY` — the provider API key (Unsplash access key or Pexels API key, matching `THEWALL_PROVIDER`). Set as a **Secret** on the Cloudflare Pages runtime; a plain env var on the Docker/Node runtime
 - Local provider works without external dependencies, but requires the Docker/Node runtime (filesystem I/O is not available on Workers isolates)
 - On the Node runtime, `node --env-file=.dev.vars` is used to load development secrets; on the Cloudflare Pages runtime, `wrangler pages dev` reads the same `.dev.vars` file
 
@@ -256,7 +254,7 @@ The application supports multiple image providers that can be selected at config
 - Image loading, prefetching and caching should be verifiable
 - Navigation and offline mode should be testable
 - End-to-end tests are driven by Playwright. The default runtime is `wrangler pages dev` (Cloudflare Pages path). Local-provider tests — those that exercise the Docker-only `/api/images/*` route — are gated on `THEWALL_TEST_RUNTIME=node` and, when that variable is set, each test spawns its own `node server.js` instance (via the shared helper in `e2e/_server.js`) with the `local` provider on a dedicated port
-- Provider-specific tests skip cleanly when the corresponding API key (`UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`) is absent, so `npm test` runs without credentials
+- Provider-specific tests skip cleanly when `THEWALL_PROVIDER_KEY` is absent, so `npm test` runs without credentials
 - CI (`.github/workflows/test.yml`) runs two jobs on `ubuntu-latest`: a `node` job that runs the local-provider Playwright suite against Fastify, and a `docker` job that builds the image and smoke-tests `/api/ping` and `/api/config`. No API-key secrets are required in CI; the Cloudflare runtime is covered by per-PR Pages preview deployments instead
 
 ## Appendix: Example Application Behavior

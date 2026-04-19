@@ -29,9 +29,9 @@ try {
   if (PROVIDER === 'local') {
     imageProvider = createLocalProvider({ folder: LOCAL_FOLDER, logger });
   } else if (PROVIDER === 'unsplash') {
-    imageProvider = createUnsplashProvider({ accessKey: process.env.UNSPLASH_ACCESS_KEY, logger });
+    imageProvider = createUnsplashProvider({ accessKey: process.env.THEWALL_PROVIDER_KEY, logger });
   } else if (PROVIDER === 'pexels') {
-    imageProvider = createPexelsProvider({ apiKey: process.env.PEXELS_API_KEY, logger });
+    imageProvider = createPexelsProvider({ apiKey: process.env.THEWALL_PROVIDER_KEY, logger });
   } else {
     throw new Error(`Unknown THEWALL_PROVIDER: ${PROVIDER}`);
   }

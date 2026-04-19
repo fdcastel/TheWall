@@ -52,8 +52,9 @@ Ideal for
 The fastest path to a live instance is the Deploy to Cloudflare button at the top of this README:
 
 1. Click the button. Cloudflare will fork this repository into your GitHub account and open the Workers Builds form pre-configured from [wrangler.toml](wrangler.toml).
-2. **Fill `UNSPLASH_ACCESS_KEY` or `PEXELS_API_KEY`** (whichever provider you picked via `THEWALL_PROVIDER`) in the dedicated field on the form. Leave the other one blank. Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
-3. **Clear the "Non-production branch deploy command" field.** The form's default of `npx wrangler versions upload` is a Workers-only command that won't work for this Pages project — either leave the field empty, or set it to `npm run deploy` to also deploy preview builds for non-production branches.
+2. **Fill `THEWALL_PROVIDER_KEY`** with your Unsplash access key or Pexels API key (matching the provider you chose via `THEWALL_PROVIDER`).
+   - Optionally override the plaintext defaults (`THEWALL_PROVIDER`, `THEWALL_IMAGE_QUERY`, etc.) in the same screen.
+3. **Clear the "Non-production branch deploy command" field** (or replace its default value with `npm run deploy`). The pre-filled `npx wrangler versions upload` is a Workers-only command that won't work for this Pages project. Cloudflare has no way to preset this from `wrangler.toml`, so it has to be fixed by hand each time the button is used.
 4. Click **Create and deploy**. Your site will be live at `https://<project-name>.pages.dev` once the build finishes.
 5. *(Optional)* To use your own domain, open **Workers & Pages → your project → Custom domains → Set up a custom domain** and follow the DNS-verification flow.
 
@@ -80,7 +81,7 @@ Example using a remote provider:
 ```bash
 docker run -d --name thewall -p 3000:3000 \
   -e THEWALL_PROVIDER=unsplash \
-  -e UNSPLASH_ACCESS_KEY=your-key \
+  -e THEWALL_PROVIDER_KEY=your-key \
   ghcr.io/fdcastel/thewall:latest
 ```
 
@@ -94,7 +95,7 @@ Uses `wrangler pages dev` to emulate the production Cloudflare environment local
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # then fill in UNSPLASH_ACCESS_KEY or PEXELS_API_KEY
+cp .dev.vars.example .dev.vars   # then fill in THEWALL_PROVIDER_KEY
 npm run dev
 ```
 
@@ -113,17 +114,16 @@ Open http://localhost:3000. Node 24's `--watch --env-file=.dev.vars` flags drive
 
 ## Environment variables
 
-| Variable                 | Description                                                                            | Default    | Required                |
-|--------------------------|----------------------------------------------------------------------------------------|:----------:|:-----------------------:|
-| `THEWALL_PROVIDER`       | Image provider: `unsplash`, `pexels`, or `local` (`local` is Docker/Node only)         | `unsplash` | No                      |
-| `THEWALL_IMAGE_INTERVAL` | Seconds between transitions                                                            | `30`       | No                      |
-| `THEWALL_IMAGE_QUERY`    | Search query for external providers                                                    | `nature`   | No                      |
-| `THEWALL_METADATA_COUNT` | Number of images to fetch per metadata request                                         | `30`       | No                      |
-| `THEWALL_PREFETCH_COUNT` | Number of upcoming images to prefetch                                                  | `2`        | No                      |
-| `PORT`                   | Server port (Node/Docker only; Pages handles routing)                                  | `3000`     | No                      |
-| `UNSPLASH_ACCESS_KEY`    | Unsplash API key — set as a **Secret** on Cloudflare Pages                             | -          | Yes, for Unsplash       |
-| `PEXELS_API_KEY`         | Pexels API key — set as a **Secret** on Cloudflare Pages                               | -          | Yes, for Pexels         |
-| `THEWALL_LOCAL_FOLDER`   | Path to local images (Docker/Node `local` provider only)                               | `./samples`| Yes, for local provider |
+| Variable                 | Description                                                                                                         | Default    | Required                    |
+|--------------------------|---------------------------------------------------------------------------------------------------------------------|:----------:|:---------------------------:|
+| `THEWALL_PROVIDER`       | Image provider: `unsplash`, `pexels`, or `local` <br /> _`local` is Docker/Node only_                               | `unsplash` | No                          |
+| `THEWALL_PROVIDER_KEY`   | Unsplash access key / Pexels API key (matching `THEWALL_PROVIDER`) <br /> _Set as a **Secret** on Cloudflare Pages_ | -          | for `unsplash` and `pexels` |
+| `THEWALL_IMAGE_INTERVAL` | Seconds between transitions                                                                                         | `30`       | No                          |
+| `THEWALL_IMAGE_QUERY`    | Search query for external providers                                                                                 | `nature`   | No                          |
+| `THEWALL_METADATA_COUNT` | Number of images to fetch per metadata request                                                                      | `30`       | No                          |
+| `THEWALL_PREFETCH_COUNT` | Number of upcoming images to prefetch                                                                               | `2`        | No                          |
+| `PORT`                   | Server port (Node/Docker only; Pages handles routing)                                                               | `3000`     | No                          |
+| `THEWALL_LOCAL_FOLDER`   | Path to `local` images                                                                                              | `./samples`| for `local`                 |
 
 ## Development notes
 

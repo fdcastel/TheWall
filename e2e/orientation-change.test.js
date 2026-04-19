@@ -4,7 +4,7 @@ import { startServer } from './_server.js';
 const ORIENTATION_BASE_URL = 'http://localhost:3100';
 let serverProcess;
 
-test.skip(!process.env.PEXELS_API_KEY, 'PEXELS_API_KEY is required for integration test');
+test.skip(!process.env.THEWALL_PROVIDER_KEY, 'THEWALL_PROVIDER_KEY is required for integration test');
 
 test.beforeAll(async () => {
   serverProcess = await startServer({

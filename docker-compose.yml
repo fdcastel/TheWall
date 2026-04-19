@@ -10,15 +10,12 @@ services:
     environment:
       # Provider: 'unsplash', 'pexels', or 'local'
       THEWALL_PROVIDER: unsplash
-      
-      # Unsplash configuration
-      # Get your access key at: https://unsplash.com/developers
-      UNSPLASH_ACCESS_KEY: your_unsplash_access_key_here
-      
-      # Pexels configuration (alternative to Unsplash)
-      # Get your API key at: https://www.pexels.com/api/
-      # PEXELS_API_KEY: your_pexels_api_key_here
-      
+
+      # Provider API key — Unsplash access key or Pexels API key, matching THEWALL_PROVIDER
+      # Unsplash: https://unsplash.com/developers
+      # Pexels:   https://www.pexels.com/api/
+      THEWALL_PROVIDER_KEY: your_provider_key_here
+
       # Local provider configuration
       # THEWALL_LOCAL_FOLDER: /app/samples
       
