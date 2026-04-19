@@ -1,8 +1,25 @@
 # TheWall
 
-TheWall is a full-screen image slideshow web application. It displays high-resolution landscape images in a full-screen presentation and supports multiple image providers (Unsplash, Pexels, or a local folder).
+### Give your walls something worth showing.
+
+TheWall turns any screen into a dynamic art display, streaming breathtaking images that elevate the mood of any room.
+
+### Got a TV that just sits there, turned off? Bring it to life!
+
+Idle screens become a living part of your space. Quietly shifting, always beautiful, filling the room with color, motion, and atmosphere.
+
+Ideal for
+- Unused TVs and idle screens
+- Meeting rooms and shared workspaces
+- Reception areas and public environments
+- Any space that could use a touch of atmosphere
+
+### Already on Cloudflare?
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/fdcastel/TheWall)
+
+
+
 
 ## Features
 - Full-screen image display with smooth transitions
