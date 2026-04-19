@@ -1,4 +1,4 @@
-const base = require('@playwright/test');
+import * as base from '@playwright/test';
 
 /**
  * Shared Playwright fixtures:
@@ -29,4 +29,5 @@ const test = base.test.extend({
   }
 });
 
-module.exports = { test, expect: base.expect };
+export { test };
+export const expect = base.expect;

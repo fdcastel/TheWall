@@ -1,4 +1,24 @@
-const { test, expect } = require('./_fixtures');
+import { test, expect } from './_fixtures.js';
+import { startServer } from './_server.js';
+
+const LOCAL_BASE_URL = 'http://localhost:3100';
+let serverProcess;
+
+test.skip(process.env.THEWALL_TEST_RUNTIME !== 'node',
+  'Local-provider test: set THEWALL_TEST_RUNTIME=node to run against the Fastify/Docker runtime');
+
+test.beforeAll(async () => {
+  serverProcess = await startServer({
+    port: 3100,
+    env: { THEWALL_PROVIDER: 'local', THEWALL_LOCAL_FOLDER: './samples' },
+  });
+});
+
+test.afterAll(async () => {
+  if (serverProcess) serverProcess.kill();
+});
+
+test.use({ baseURL: LOCAL_BASE_URL });
 
 test('Rapid navigation should not prefetch already-passed images', async ({ page, waitForLog, logs }) => {
   // Throttle image requests so prefetches have real latency — without this,

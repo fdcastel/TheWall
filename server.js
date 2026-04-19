@@ -1,17 +1,17 @@
-const path = require('path');
-const fs = require('fs');
-const fastify = require('fastify')({ logger: true });
-const fastifyStatic = require('@fastify/static');
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
 
-const { createLocalProvider } = require('./providers/local');
-const { createUnsplashProvider } = require('./providers/unsplash');
-const { createPexelsProvider } = require('./providers/pexels');
+import { createLocalProvider } from './providers/local.js';
+import { createUnsplashProvider } from './providers/unsplash.js';
+import { createPexelsProvider } from './providers/pexels.js';
+import { parseIntEnv } from './lib/env.js';
 
-// Parse integer env with NaN fallback (preserves 0 instead of rewriting to default).
-function parseIntEnv(value, defaultValue) {
-  const parsed = parseInt(value, 10);
-  return Number.isNaN(parsed) ? defaultValue : parsed;
-}
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const fastify = Fastify({ logger: true });
 
 // Environment variables
 const PROVIDER = process.env.THEWALL_PROVIDER || 'local';
@@ -55,12 +55,6 @@ fastify.register(fastifyStatic, {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
   }
-});
-
-fastify.register(fastifyStatic, {
-  root: path.join(__dirname, 'img'),
-  prefix: '/img/',
-  decorateReply: false
 });
 
 // ---------- Local image serving ----------

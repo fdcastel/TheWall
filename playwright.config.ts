@@ -2,7 +2,20 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
+ *
+ * Default webServer boots Cloudflare Pages via `wrangler pages dev` so the
+ * Functions runtime is exercised. Tests that need a specific provider config
+ * (unsplash / pexels) or the Fastify/local-provider runtime boot their own
+ * server on port 3100 from inside the test file via `./_server.js`.
+ *
+ * Local-provider tests (image-content, long-filenames, appendix-sequence,
+ * offline-detection, rapid-navigation) are gated on
+ * `THEWALL_TEST_RUNTIME=node` because the `/api/images/*` route and filesystem
+ * behaviour only exist on the Docker/Node path. When that flag is set the
+ * default wrangler webServer is skipped entirely.
  */
+const isNodeRuntime = process.env.THEWALL_TEST_RUNTIME === 'node';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -11,7 +24,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'line',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:8788',
     trace: 'on-first-retry',
   },
   projects: [
@@ -21,20 +34,10 @@ export default defineConfig({
     },
   ],
 
-  /**
-   * Shared local-provider server used by the core E2E suite.
-   * Tests that need a different provider (unsplash/pexels) boot their own
-   * server on port 3100 inside the test file.
-   */
-  webServer: {
-    command: 'node server.js',
-    url: 'http://localhost:3000/api/ping',
+  webServer: isNodeRuntime ? undefined : {
+    command: 'npx wrangler pages dev public --compatibility-date=2025-04-01 --port 8788',
+    url: 'http://localhost:8788/api/ping',
     reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-    env: {
-      THEWALL_PROVIDER: 'local',
-      THEWALL_LOCAL_FOLDER: './samples',
-      THEWALL_IMAGE_INTERVAL: '30',
-    },
+    timeout: 60_000,
   },
 });

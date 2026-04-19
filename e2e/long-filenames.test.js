@@ -1,6 +1,26 @@
-const { test, expect } = require('./_fixtures');
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { test, expect } from './_fixtures.js';
+import { startServer } from './_server.js';
+
+const LOCAL_BASE_URL = 'http://localhost:3100';
+let serverProcess;
+
+test.skip(process.env.THEWALL_TEST_RUNTIME !== 'node',
+  'Local-provider test: set THEWALL_TEST_RUNTIME=node to run against the Fastify/Docker runtime');
+
+test.beforeAll(async () => {
+  serverProcess = await startServer({
+    port: 3100,
+    env: { THEWALL_PROVIDER: 'local', THEWALL_LOCAL_FOLDER: './samples' },
+  });
+});
+
+test.afterAll(async () => {
+  if (serverProcess) serverProcess.kill();
+});
+
+test.use({ baseURL: LOCAL_BASE_URL });
 
 test('Long filename images 21 and 22 work correctly', async ({ page, waitForLog, baseURL }) => {
   await page.goto('/');

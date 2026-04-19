@@ -1,4 +1,7 @@
-const { test, expect } = require('./_fixtures');
+import { test, expect } from './_fixtures.js';
+
+test.skip(process.env.THEWALL_TEST_RUNTIME === 'node',
+  'unified-controls uses the default wrangler webServer; skipped under THEWALL_TEST_RUNTIME=node');
 
 test('Mouse wheel navigation works', async ({ page, waitForLog }) => {
   await page.goto('/');

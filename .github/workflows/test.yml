@@ -1,0 +1,82 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  node:
+    name: Node / Fastify (local provider)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run local-provider Playwright suite against Fastify
+        run: npm test
+        env:
+          THEWALL_TEST_RUNTIME: node
+
+  docker:
+    name: Docker image build & smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t thewall:test .
+
+      - name: Run container with local provider
+        run: |
+          docker run -d --rm \
+            -p 3000:3000 \
+            -e THEWALL_PROVIDER=local \
+            -e THEWALL_LOCAL_FOLDER=/app/samples \
+            --name thewall \
+            thewall:test
+
+      - name: Wait for server readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/api/ping > /dev/null; then
+              echo "Server is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not become ready in 30 seconds." >&2
+          docker logs thewall || true
+          exit 1
+
+      - name: Smoke test /api/ping
+        run: |
+          response=$(curl -fsS http://localhost:3000/api/ping)
+          echo "ping response: $response"
+          echo "$response" | grep -q '"status":"ok"'
+
+      - name: Smoke test /api/config
+        run: |
+          response=$(curl -fsS http://localhost:3000/api/config)
+          echo "config response: $response"
+          echo "$response" | grep -q '"provider":"local"'
+
+      - name: Stop container
+        if: always()
+        run: docker stop thewall || true

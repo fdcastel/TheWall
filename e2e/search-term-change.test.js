@@ -1,5 +1,5 @@
-const { test, expect } = require('./_fixtures');
-const { startServer } = require('./_server');
+import { test, expect } from './_fixtures.js';
+import { startServer } from './_server.js';
 
 const SEARCH_BASE_URL = 'http://localhost:3100';
 let serverProcess;

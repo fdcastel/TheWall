@@ -1,0 +1,10 @@
+name = "thewall"
+compatibility_date = "2025-04-01"
+pages_build_output_dir = "public"
+
+[vars]
+THEWALL_PROVIDER       = "unsplash"
+THEWALL_IMAGE_INTERVAL = "30"
+THEWALL_IMAGE_QUERY    = "nature"
+THEWALL_METADATA_COUNT = "30"
+THEWALL_PREFETCH_COUNT = "2"

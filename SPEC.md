@@ -2,13 +2,26 @@
 
 ## Overview
 
-TheWall is a web-based image slideshow application that displays high-resolution landscape images in a full-screen, auto-advancing presentation. 
+TheWall is a web-based image slideshow application that displays high-resolution landscape images in a full-screen, auto-advancing presentation.
 
 The application supports multiple image providers (local storage, Unsplash, Pexels) that can be configured before startup.
 
 Images are displayed with smooth transitions, attribution information, and have support for working in offline mode (reusing previously downloaded content).
 
 The application provides a unified command control experience across devices: desktops with keyboards/mice, tablets/totems with touch screens, and TVs with remote controls.
+
+## Runtimes and Deployment
+
+TheWall runs on two supported runtimes from a single ESM codebase:
+
+| Runtime                  | Entrypoints                    | Providers                 | Deployment target         |
+|--------------------------|--------------------------------|---------------------------|---------------------------|
+| Cloudflare Pages         | `functions/api/*.js`           | `unsplash`, `pexels`      | Cloudflare Pages (primary)|
+| Node 24 LTS + Fastify    | `server.js`                    | `unsplash`, `pexels`, `local` | Docker image on GHCR |
+
+Shared code lives in `providers/` (provider implementations) and `lib/` (env parsing, provider factory). Provider implementations use global `fetch()` and `AbortSignal.timeout()` so they work unmodified on both runtimes. The `local` provider performs filesystem I/O and therefore only runs on the Node/Docker path — `lib/provider.js` throws a clear error if `THEWALL_PROVIDER=local` is selected on Cloudflare Pages.
+
+Supported Node version: `>= 24.15.0`. The Docker image is based on `node:24-alpine`.
 
 ## Core Functionality
 
@@ -155,11 +168,12 @@ The application supports multiple image providers that can be selected at config
 ### Image Metadata Endpoint
 - **Path**: `/api/images/metadata`
 - **Method**: GET
-- **Query Parameters**:
-  - `count` (optional): Number of images to return (default: 30)
-  - `orientation` (optional): Image orientation preference (default: "landscape")
-  - `query` (optional): Search query for filtering images (ignored for local provider)
-- **Response**: JSON object containing an array of image metadata
+- **Query Parameters** (validated on both runtimes — invalid values return `400`):
+  - `count` (optional, integer, `1..100`): Number of images to return (default: `THEWALL_METADATA_COUNT`, 30)
+  - `start` (optional, integer, `>= 0`): Pagination offset passed to the provider (default: 0; used by Pexels, ignored by Unsplash's random endpoint and by local)
+  - `orientation` (optional, enum): `landscape` or `portrait` (default: `landscape`)
+  - `query` (optional, string, max length 200): Search query for filtering images (ignored for local provider)
+- **Response**: JSON object `{ images: [...] }` with `Cache-Control: no-cache, no-store, must-revalidate`. Provider errors are swallowed and returned as `{ images: [] }` to preserve the front-end's offline/empty contract.
 - **Environment Variables**:
   - `UNSPLASH_ACCESS_KEY`: Required for Unsplash provider
   - `PEXELS_API_KEY`: Required for Pexels provider
@@ -173,13 +187,15 @@ The application supports multiple image providers that can be selected at config
   - `created_at`: ISO date string of image creation (null for local provider and Pexels)
   - `location.name`: Location name where image was taken (null for local provider and Pexels)
 
-### Image Serving Endpoint (Local Provider Only)
+### Image Serving Endpoint (Local Provider Only, Docker/Node runtime only)
 - **Path**: `/api/images/{filename}`
 - **Method**: GET
+- **Availability**: Fastify route registered only when `THEWALL_PROVIDER=local`. Not present on the Cloudflare Pages runtime.
 - **Description**: Serves individual image files from the local provider folder. Not required for Unsplash or Pexels providers, as images are sourced directly from their APIs.
 - **Response**: The image file with appropriate MIME type.
-- **Cache Headers**: Emulate Unsplash/Pexels behavior with `Cache-Control: public, max-age=31536000` (1-year cache lifetime), `Last-Modified` set to the file's last modified timestamp, and optionally `ETag` as an MD5 hash of the file content for conditional requests. Include `Content-Type`, `Content-Length`, and `Accept-Ranges: bytes`.
-  - **ETag Benefit**: Even for static images, ETag enables efficient revalidation. If the browser sends an `If-None-Match` header with the cached ETag, the server can respond with `304 Not Modified` instead of re-sending the image, saving bandwidth and improving performance for large files.
+- **Path hardening**: The wildcard parameter is rejected if it is an absolute path, and the resolved filesystem path must be equal to or a child of the configured `THEWALL_LOCAL_FOLDER` (path-traversal guard). Any mismatch, missing file, or non-file target returns `404`.
+- **Cache Headers**: `Cache-Control: public, max-age=31536000, immutable`, `Last-Modified` set to the file's last modified timestamp, and a size-plus-mtime `ETag` for conditional requests. Include `Content-Type` (derived from the file extension via a provider-supplied MIME map), `Content-Length`, and `Accept-Ranges: bytes`.
+  - **ETag Benefit**: The server honors `If-None-Match` by returning `304 Not Modified` (with `ETag` and `Cache-Control`), saving bandwidth on repeated requests for unchanged files.
 
 ## Performance Requirements
 
@@ -218,16 +234,17 @@ The application supports multiple image providers that can be selected at config
 
 ### Provider Configuration
 - Application configuration must be done exclusively over environment variables starting with `THEWALL_`
-  - `THEWALL_PROVIDER`: one of `local`, `unsplash`, `pexels`
-  - `THEWALL_LOCAL_FOLDER`: path of images when using `local` provider.
+  - `THEWALL_PROVIDER`: one of `local`, `unsplash`, `pexels` (`local` is available only on the Node/Docker runtime)
+  - `THEWALL_LOCAL_FOLDER`: path of images when using `local` provider (Node/Docker runtime only)
   - `THEWALL_IMAGE_INTERVAL`: interval, in seconds, to auto-advance the next image (default: 30 seconds)
   - `THEWALL_IMAGE_QUERY`: string to use in the `query` parameter of the external providers APIs (default: 'nature')
   - `THEWALL_METADATA_COUNT`: number of metadata items to retrieve per API call (default: 30)
   - `THEWALL_PREFETCH_COUNT`: number of images to prefetch ahead of the current image (default: 2)
 - Environment variables required for external providers
-  - `UNSPLASH_ACCESS_KEY` for Unsplash
-  - `PEXELS_API_KEY` for Pexels
-- Local provider works without external dependencies
+  - `UNSPLASH_ACCESS_KEY` for Unsplash — set as a **Secret** on the Cloudflare Pages runtime
+  - `PEXELS_API_KEY` for Pexels — set as a **Secret** on the Cloudflare Pages runtime
+- Local provider works without external dependencies, but requires the Docker/Node runtime (filesystem I/O is not available on Workers isolates)
+- On the Node runtime, `node --env-file=.dev.vars` is used to load development secrets; on the Cloudflare Pages runtime, `wrangler pages dev` reads the same `.dev.vars` file
 
 ### Debugging
 - Debug logging must be complete, both in server as in client. 
@@ -238,6 +255,9 @@ The application supports multiple image providers that can be selected at config
 - API endpoints should be testable independently
 - Image loading, prefetching and caching should be verifiable
 - Navigation and offline mode should be testable
+- End-to-end tests are driven by Playwright. The default runtime is `wrangler pages dev` (Cloudflare Pages path). Local-provider tests — those that exercise the Docker-only `/api/images/*` route — are gated on `THEWALL_TEST_RUNTIME=node` and, when that variable is set, each test spawns its own `node server.js` instance (via the shared helper in `e2e/_server.js`) with the `local` provider on a dedicated port
+- Provider-specific tests skip cleanly when the corresponding API key (`UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`) is absent, so `npm test` runs without credentials
+- CI (`.github/workflows/test.yml`) runs two jobs on `ubuntu-latest`: a `node` job that runs the local-provider Playwright suite against Fastify, and a `docker` job that builds the image and smoke-tests `/api/ping` and `/api/config`. No API-key secrets are required in CI; the Cloudflare runtime is covered by per-PR Pages preview deployments instead
 
 ## Appendix: Example Application Behavior
 

@@ -1,5 +1,5 @@
 # TheWall Docker Image
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Set working directory
 WORKDIR /app
@@ -13,7 +13,8 @@ RUN npm ci --omit=dev
 # Copy application files
 COPY server.js ./
 COPY public ./public
-COPY img ./img
+COPY providers ./providers
+COPY lib ./lib
 
 # Create samples directory (for local provider)
 RUN mkdir -p ./samples

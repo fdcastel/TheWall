@@ -1,6 +1,7 @@
 node_modules/
 dist/
 /.env
+/.dev.vars
 server/node_modules/
 client/node_modules/
 *.log
@@ -13,5 +14,8 @@ client/node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Wrangler / Cloudflare Pages
+/.wrangler/
 
 /tmp

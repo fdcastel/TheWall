@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const EXTENSION_CONTENT_TYPES = {
   '.jpg': 'image/jpeg',
@@ -9,7 +9,7 @@ const EXTENSION_CONTENT_TYPES = {
   '.webp': 'image/webp'
 };
 
-function createLocalProvider({ folder, logger }) {
+export function createLocalProvider({ folder, logger }) {
   const resolvedFolder = path.resolve(folder);
 
   return {
@@ -48,5 +48,3 @@ function createLocalProvider({ folder, logger }) {
     }
   };
 }
-
-module.exports = { createLocalProvider };
