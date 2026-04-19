@@ -1,36 +1,27 @@
-const { test, expect } = require('@playwright/test');
-const { spawn } = require('child_process');
+const { test, expect } = require('./_fixtures');
+const { startServer } = require('./_server');
 
+const UNSPLASH_BASE_URL = 'http://localhost:3100';
 let serverProcess;
 
+test.skip(!process.env.UNSPLASH_ACCESS_KEY, 'UNSPLASH_ACCESS_KEY is required for integration test');
+
 test.beforeAll(async () => {
-  process.env.THEWALL_PROVIDER = 'unsplash';
-  serverProcess = spawn('node', ['server.js'], { stdio: 'inherit', env: { ...process.env } });
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  serverProcess = await startServer({
+    port: 3100,
+    env: { THEWALL_PROVIDER: 'unsplash' },
+  });
 });
 
 test.afterAll(async () => {
   if (serverProcess) serverProcess.kill();
 });
 
-test('Navigate through images with Unsplash provider using keypresses', async ({ page }) => {
-  const consoleLogs = [];
-  page.on('console', msg => {
-    if (msg.type() === 'log' || msg.type() === 'warn' || msg.type() === 'error') {
-      consoleLogs.push(msg.text());
-    }
-  });
-  await page.goto('http://localhost:3000');
+test.use({ baseURL: UNSPLASH_BASE_URL });
+
+test('Navigate through images with Unsplash provider using keypresses', async ({ page, waitForLog }) => {
+  await page.goto('/');
   await page.waitForFunction(() => window.theWall);
-  const waitForLog = async (pattern, timeout = 5000) => {
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeout) {
-      const match = consoleLogs.find(log => pattern.test(log));
-      if (match) return match;
-      await page.waitForTimeout(100);
-    }
-    throw new Error(`Timeout waiting for log matching: ${pattern}`);
-  };
   await waitForLog(/Displaying image 0:/);
   await waitForLog(/Image loaded successfully 0:/);
   await page.keyboard.press('N');
