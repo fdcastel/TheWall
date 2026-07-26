@@ -92,7 +92,7 @@ docker run -d --name thewall -p 3000:3000 \
 
 ## Quick start (local development)
 
-Requires Node.js 24.15.0 or newer.
+Requires Node.js 24 or newer.
 
 ### Cloudflare Workers runtime (default)
 
