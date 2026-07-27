@@ -39,7 +39,11 @@ export function createLocalProvider({ folder, logger }) {
         if (idx >= files.length) break;
         metadata.push({
           id: idx.toString(),
-          url: `/api/images/${files[idx]}`,
+          // Must be encoded: a filename containing a space, '#', '?' or '%' is
+          // otherwise emitted as a malformed URL. '#' in particular truncates
+          // the path into a fragment, so the image 404s, the <img> onerror
+          // handler fires, and the whole app drops into offline mode.
+          url: `/api/images/${encodeURIComponent(files[idx])}`,
           color: '#000',
           user: null,
           created_at: null,

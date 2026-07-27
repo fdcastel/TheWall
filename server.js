@@ -49,10 +49,13 @@ fastify.register(fastifyStatic, {
   prefix: '/',
   index: 'index.html',
   decorateReply: true,
-  setHeaders: (res, filePath) => {
+  // @fastify/static v8+ calls this as fn(reply, path, stat) with a Fastify
+  // Reply. It was fn(res, path, stat) with a raw ServerResponse in v6, so
+  // res.setHeader() here threw and killed the process on every /app.js request.
+  setHeaders: (reply, filePath) => {
     // app.js mutates often enough that caching hurts during development.
     if (filePath.endsWith(`${path.sep}app.js`)) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
   }
 });

@@ -10,15 +10,31 @@ const DEFAULT_PORT = 3100;
  * `/api/ping` replies 200. Rejects after `timeoutMs`. Returns the child process.
  */
 export async function startServer({ port, env, timeoutMs = 20_000 }) {
+  // Refuse to adopt somebody else's server. Without this the readiness probe
+  // below is satisfied by whatever is already listening, so a leaked server
+  // from an earlier run silently serves the whole suite with the wrong config.
+  if (await ping(port)) {
+    throw new Error(
+      `Port ${port} is already serving /api/ping before this test started it. ` +
+      `A previous run probably leaked a server; kill it and retry.`
+    );
+  }
+
   const childEnv = { ...process.env, PORT: String(port), ...env };
-  const child = spawn('node', ['server.js'], {
+  // No `shell: true`: on Windows that spawns cmd.exe, and child.kill() then
+  // kills the shell while node.exe keeps running and holding the port.
+  // process.execPath is the running node binary, so there is no PATH lookup
+  // to need a shell for in the first place.
+  const child = spawn(process.execPath, ['server.js'], {
     stdio: 'inherit',
-    env: childEnv,
-    shell: process.platform === 'win32'
+    env: childEnv
   });
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`Server on port ${port} exited early with code ${child.exitCode}`);
+    }
     if (await ping(port)) return child;
     await sleep(100);
   }

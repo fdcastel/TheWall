@@ -11,7 +11,10 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
     async getMetadata({ count = 30, orientation = 'landscape', query = '' } = {}) {
       // /search/photos does not return the `location` field, which attribution
       // depends on. /photos/random does — at the cost of no pagination.
-      const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${accessKey}`;
+      // The access key goes in the Authorization header, not the query string:
+      // this URL is logged, and `client_id=` would put the secret into Fastify
+      // stdout and `wrangler tail`. Unsplash documents both forms.
+      const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}`;
       logger.info?.(`Fetching Unsplash metadata: ${url}`);
 
       // Failures throw rather than returning []: the caller must be able to tell
@@ -20,7 +23,10 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
       let res;
       try {
         res = await fetch(url, {
-          headers: { 'User-Agent': 'TheWall/1.0' },
+          headers: {
+            'Authorization': `Client-ID ${accessKey}`,
+            'User-Agent': 'TheWall/1.0'
+          },
           signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS)
         });
       } catch (err) {
