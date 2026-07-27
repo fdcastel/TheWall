@@ -52,6 +52,14 @@ fastify.register(fastifyStatic, {
 
 // ---------- Local image serving ----------
 
+// Served by hand rather than by a second @fastify/static registration, which
+// looks like the obvious simplification but cannot work here: the plugin
+// resolves the path with decodeURI(), which by design leaves reserved
+// characters escaped. A file named "Photo #3.jpg" is emitted as
+// "Photo%20%233.jpg", decodeURI() yields "Photo %233.jpg", and it 404s. Since
+// a 404 here fires <img> onerror and drops the whole app into offline mode,
+// one ordinary filename would take the slideshow down. Verified against
+// @fastify/static 10.1.2.
 if (PROVIDER === 'local') {
   const { resolvedFolder, extensionContentTypes } = imageProvider;
 
@@ -95,7 +103,10 @@ if (PROVIDER === 'local') {
     reply.header('Cache-Control', 'public, max-age=31536000, immutable');
     reply.header('Content-Type', contentType);
     reply.header('Content-Length', stat.size);
-    reply.header('Accept-Ranges', 'bytes');
+    // Deliberately no `Accept-Ranges: bytes`. This route does not read the
+    // Range header and always sends the whole file, so advertising range
+    // support was simply untrue. <img> never issues range requests, so nothing
+    // depends on it.
     reply.header('Last-Modified', stat.mtime.toUTCString());
     reply.header('ETag', etag);
     return reply.send(fs.createReadStream(resolved));

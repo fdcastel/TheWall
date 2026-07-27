@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 10_000;
+import { fetchJson } from '../lib/http.js';
 
 export function createUnsplashProvider({ accessKey, logger = console }) {
   if (!accessKey) {
@@ -12,43 +12,21 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
 
     async getMetadata({ count = 30, orientation = 'landscape', query = '', width = 1920 } = {}) {
       count = Math.min(count, 30);
+
       // /search/photos does not return the `location` field, which attribution
       // depends on. /photos/random does — at the cost of no pagination.
+      //
       // The access key goes in the Authorization header, not the query string:
       // this URL is logged, and `client_id=` would put the secret into Fastify
       // stdout and `wrangler tail`. Unsplash documents both forms.
       const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}`;
       logger.info?.(`Fetching Unsplash metadata: ${url}`);
 
-      // Failures throw rather than returning []: the caller must be able to tell
-      // "this provider is unavailable" (-> 503, client goes offline) apart from
-      // "this query genuinely matched nothing" (-> 200 with an empty list).
-      let res;
-      try {
-        res = await fetch(url, {
-          headers: {
-            'Authorization': `Client-ID ${accessKey}`,
-            'User-Agent': 'TheWall/1.0'
-          },
-          signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS)
-        });
-      } catch (err) {
-        logger.error?.(`Unsplash request failed: ${err.message}`);
-        throw new Error(`Unsplash request failed: ${err.message}`);
-      }
-
-      if (!res.ok) {
-        logger.error?.(`Unsplash API error: ${res.status}`);
-        throw new Error(`Unsplash API error: ${res.status}`);
-      }
-
-      let photos;
-      try {
-        photos = await res.json();
-      } catch (err) {
-        logger.error?.(`Failed to parse Unsplash response: ${err.message}`);
-        throw new Error(`Failed to parse Unsplash response: ${err.message}`);
-      }
+      const photos = await fetchJson(url, {
+        headers: { 'Authorization': `Client-ID ${accessKey}` },
+        logger,
+        label: 'Unsplash'
+      });
 
       return photos.map((photo) => ({
         id: photo.id,

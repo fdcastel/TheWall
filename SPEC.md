@@ -197,9 +197,11 @@ The application supports multiple image providers that can be selected at config
 - **Availability**: Fastify route registered only when `THEWALL_PROVIDER=local`. Not present on the Cloudflare Workers runtime.
 - **Description**: Serves individual image files from the local provider folder. Not required for Unsplash or Pexels providers, as images are sourced directly from their APIs.
 - **Response**: The image file with appropriate MIME type.
-- **Path hardening**: The wildcard parameter is rejected if it is an absolute path, and the resolved filesystem path must be equal to or a child of the configured `THEWALL_LOCAL_FOLDER` (path-traversal guard). Any mismatch, missing file, or non-file target returns `404`.
-- **Cache Headers**: `Cache-Control: public, max-age=31536000, immutable`, `Last-Modified` set to the file's last modified timestamp, and a size-plus-mtime `ETag` for conditional requests. Include `Content-Type` (derived from the file extension via a provider-supplied MIME map), `Content-Length`, and `Accept-Ranges: bytes`.
+- **Implementation**: A hand-written `/api/images/*` route, **not** a second `@fastify/static` registration. The plugin resolves paths with `decodeURI()`, which by design leaves reserved characters escaped, so a file named `Photo #3.jpg` (emitted as `Photo%20%233.jpg`) resolves to `Photo %233.jpg` and 404s. Because a 404 here fires the `<img>` `onerror` handler and drops the app into offline mode, one ordinary filename would take the slideshow down. `/api/images/metadata` stays reachable because find-my-way matches static segments before wildcards.
+- **Path hardening**: The wildcard parameter is rejected if it is an absolute path, and the resolved filesystem path must be equal to or a child of the configured `THEWALL_LOCAL_FOLDER` (path-traversal guard). Any mismatch, missing file, or non-file target returns `404`. Filenames are URL-encoded by the provider, so names containing spaces, `#`, `%`, `?` or `&` round-trip correctly.
+- **Cache Headers**: `Cache-Control: public, max-age=31536000, immutable`, `Last-Modified` set to the file's last modified timestamp, and a size-plus-mtime `ETag` for conditional requests. Include `Content-Type` (derived from the file extension via a provider-supplied MIME map) and `Content-Length`.
   - **ETag Benefit**: The server honors `If-None-Match` by returning `304 Not Modified` (with `ETag` and `Cache-Control`), saving bandwidth on repeated requests for unchanged files.
+- **Range requests**: Not supported. The route always sends the whole file, and deliberately does **not** send `Accept-Ranges: bytes` — advertising it while ignoring `Range` was misleading. `<img>` does not issue range requests, so nothing depends on it.
 
 ## Performance Requirements
 
