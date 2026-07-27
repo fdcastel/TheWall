@@ -10,7 +10,7 @@ export function createPexelsProvider({ apiKey, logger = console }) {
     // /v1/search documents "Default: 15 | Max: 80" for per_page.
     maxCount: 80,
 
-    async getMetadata({ count = 30, orientation = 'landscape', query = '', start = 0 } = {}) {
+    async getMetadata({ count = 30, orientation = 'landscape', query = '', start = 0, width = 1920 } = {}) {
       count = Math.min(count, 80);
       // Pexels pagination is 1-indexed.
       const page = Math.floor(start / count) + 1;
@@ -49,7 +49,14 @@ export function createPexelsProvider({ apiKey, logger = console }) {
 
       return response.photos.map((photo) => ({
         id: photo.id.toString(),
-        url: photo.src.original,
+        // `src.original` is the uncapped original. Pexels does not *document*
+        // resize parameters on it, but its own `src.*` variants are exactly
+        // this URL plus these parameters, and they demonstrably work: measured
+        // on a 1.94 MB original, 373 KB at w=1920. If Pexels ever drops them
+        // the URL still returns the original, so this degrades to the previous
+        // behaviour rather than breaking. The documented alternative is the
+        // fixed-size src.large2x (1880x1300), which cannot match the viewport.
+        url: `${photo.src.original}?auto=compress&cs=tinysrgb&w=${width}`,
         color: photo.avg_color,
         user: {
           name: photo.photographer,

@@ -110,6 +110,26 @@ class TheWall {
     return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
   }
 
+  // Device-pixel width of the viewport, clamped to the range the API accepts.
+  // Remote providers use it to return a display-sized rendition rather than the
+  // full-size original, which matters most on the low-powered TVs this targets:
+  // decoding a 6000x4000 JPEG to draw it at 1080p is pure waste.
+  requestedWidth() {
+    const raw = Math.round(window.innerWidth * (window.devicePixelRatio || 1));
+    return Math.min(3840, Math.max(640, raw));
+  }
+
+  metadataUrl({ count, start = 0 }) {
+    const params = new URLSearchParams({
+      count: String(count),
+      orientation: this.currentOrientation,
+      query: this.imageQuery,
+      width: String(this.requestedWidth())
+    });
+    if (start > 0) params.set('start', String(start));
+    return `/api/images/metadata?${params}`;
+  }
+
   setupOrientationListener() {
     // Debounce: dragging a window edge fires many resize events, each of which
     // would otherwise hit the provider API and risk rate-limiting.
@@ -157,7 +177,7 @@ class TheWall {
     if (count === null) count = this.metadataCount;
     console.log(`Loading metadata with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
-      const response = await fetch(`/api/images/metadata?count=${count}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
+      const response = await fetch(this.metadataUrl({ count }));
       // A 503 means the provider is unavailable — fall through to the catch so we
       // go offline instead of mistaking it for an empty search result.
       if (!response.ok) throw new Error(`Failed to load metadata (HTTP ${response.status})`);
@@ -464,7 +484,7 @@ class TheWall {
     const nextStart = this.metadata.length;
     console.log(`Loading more metadata starting from ${nextStart} with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
-      const response = await fetch(`/api/images/metadata?count=${this.metadataCount}&start=${nextStart}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
+      const response = await fetch(this.metadataUrl({ count: this.metadataCount, start: nextStart }));
       if (!response.ok) throw new Error('Failed to load more metadata');
       const data = await response.json();
       this.metadata.push(...data.images);
