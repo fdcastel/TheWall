@@ -12,7 +12,8 @@
     "dev:node": "node --watch --env-file=.dev.vars server.js",
     "start": "node server.js",
     "deploy": "wrangler deploy",
-    "test": "playwright test"
+    "test": "npm run test:unit && playwright test",
+    "test:unit": "node --test \"test/*.test.js\""
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",

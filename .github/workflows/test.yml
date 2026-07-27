@@ -28,7 +28,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run local-provider Playwright suite against Fastify
+      # `npm test` runs the node:test unit suite first, then Playwright.
+      - name: Run unit and local-provider suites against Fastify
         run: npm test
         env:
           THEWALL_TEST_RUNTIME: node
@@ -48,6 +49,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # No browser needed here; these cover the pure logic shared by both runtimes.
+      - name: Run unit suite
+        run: npm run test:unit
 
       # worker.js is the production deploy target but was previously executed by
       # no CI job at all: the `node` job runs server.js and the `docker` job
