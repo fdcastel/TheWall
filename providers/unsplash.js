@@ -14,6 +14,9 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
       const url = `https://api.unsplash.com/photos/random?count=${count}&orientation=${orientation}&query=${encodeURIComponent(query)}&client_id=${accessKey}`;
       logger.info?.(`Fetching Unsplash metadata: ${url}`);
 
+      // Failures throw rather than returning []: the caller must be able to tell
+      // "this provider is unavailable" (-> 503, client goes offline) apart from
+      // "this query genuinely matched nothing" (-> 200 with an empty list).
       let res;
       try {
         res = await fetch(url, {
@@ -22,12 +25,12 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
         });
       } catch (err) {
         logger.error?.(`Unsplash request failed: ${err.message}`);
-        return [];
+        throw new Error(`Unsplash request failed: ${err.message}`);
       }
 
       if (!res.ok) {
         logger.error?.(`Unsplash API error: ${res.status}`);
-        return [];
+        throw new Error(`Unsplash API error: ${res.status}`);
       }
 
       let photos;
@@ -35,7 +38,7 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
         photos = await res.json();
       } catch (err) {
         logger.error?.(`Failed to parse Unsplash response: ${err.message}`);
-        return [];
+        throw new Error(`Failed to parse Unsplash response: ${err.message}`);
       }
 
       return photos.map((photo) => ({

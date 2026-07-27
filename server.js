@@ -131,9 +131,20 @@ fastify.get('/api/images/metadata', { schema: { querystring: metadataQuerySchema
   } = request.query;
 
   logger.info(`Metadata request: count=${count}, orientation=${orientation}, query=${query}, start=${start}`);
-  const images = await imageProvider.getMetadata({ count, orientation, query, start });
 
   reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+  let images;
+  try {
+    images = await imageProvider.getMetadata({ count, orientation, query, start });
+  } catch (err) {
+    // 503, not an empty list: the client must be able to distinguish an
+    // unavailable provider (go offline) from a query that matched nothing
+    // (show the warning and keep the current images).
+    logger.error(`Provider error: ${err.message}`);
+    return reply.code(503).send({ images: [], error: 'provider_unavailable' });
+  }
+
   return { images };
 });
 

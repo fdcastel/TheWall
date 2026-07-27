@@ -19,12 +19,14 @@ export function createLocalProvider({ folder, logger }) {
 
     async getMetadata({ count = 30, start = 0 } = {}) {
       logger.info(`Reading local folder "${resolvedFolder}" for metadata`);
+      // An unreadable folder is a provider failure (-> 503), distinct from a
+      // readable folder whose page is past the end (-> 200 with an empty list).
       let files;
       try {
         files = fs.readdirSync(resolvedFolder);
       } catch (err) {
-        logger.info(`Failed to read local folder: ${err.message}`);
-        return [];
+        logger.error(`Failed to read local folder: ${err.message}`);
+        throw new Error(`Failed to read local folder: ${err.message}`);
       }
       files = files
         .filter(file => EXTENSION_CONTENT_TYPES[path.extname(file).toLowerCase()])

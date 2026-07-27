@@ -56,8 +56,14 @@ async function handleMetadata(url, env) {
     const provider = getProvider(env);
     images = await provider.getMetadata({ count, start, orientation, query });
   } catch (err) {
+    // 503, not an empty list: the client must be able to distinguish an
+    // unavailable provider (go offline) from a query that matched nothing
+    // (show the warning and keep the current images).
     console.error(`Provider error: ${err.message}`);
-    return Response.json({ images: [] }, { headers: NO_STORE });
+    return Response.json(
+      { images: [], error: 'provider_unavailable' },
+      { status: 503, headers: NO_STORE }
+    );
   }
 
   return Response.json({ images }, { headers: NO_STORE });

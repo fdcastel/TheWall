@@ -14,6 +14,9 @@ export function createPexelsProvider({ apiKey, logger = console }) {
       const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${page}&orientation=${orientation}`;
       logger.info?.(`Fetching Pexels metadata: ${url} (page=${page}, start=${start})`);
 
+      // Failures throw rather than returning []: the caller must be able to tell
+      // "this provider is unavailable" (-> 503, client goes offline) apart from
+      // "this query genuinely matched nothing" (-> 200 with an empty list).
       let res;
       try {
         res = await fetch(url, {
@@ -25,12 +28,12 @@ export function createPexelsProvider({ apiKey, logger = console }) {
         });
       } catch (err) {
         logger.error?.(`Pexels request failed: ${err.message}`);
-        return [];
+        throw new Error(`Pexels request failed: ${err.message}`);
       }
 
       if (!res.ok) {
         logger.error?.(`Pexels API error: ${res.status}`);
-        return [];
+        throw new Error(`Pexels API error: ${res.status}`);
       }
 
       let response;
@@ -38,7 +41,7 @@ export function createPexelsProvider({ apiKey, logger = console }) {
         response = await res.json();
       } catch (err) {
         logger.error?.(`Failed to parse Pexels response: ${err.message}`);
-        return [];
+        throw new Error(`Failed to parse Pexels response: ${err.message}`);
       }
 
       return response.photos.map((photo) => ({

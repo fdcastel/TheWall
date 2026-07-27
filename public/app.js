@@ -133,12 +133,18 @@ class TheWall {
     }
   }
 
-  async loadMetadata(count = null, isSearchChange = false) {
+  // `allowFallback` guards the "no results -> retry with the previous query" path.
+  // It must be false on the retry itself: `previousImageQuery` is not reassigned
+  // here, so an unconditional retry re-issues the *same* request forever. A
+  // provider outage used to hit exactly that path and produced ~200 requests/sec.
+  async loadMetadata(count = null, isSearchChange = false, allowFallback = true) {
     if (count === null) count = this.metadataCount;
     console.log(`Loading metadata with orientation=${this.currentOrientation}, query=${this.imageQuery}`);
     try {
       const response = await fetch(`/api/images/metadata?count=${count}&orientation=${this.currentOrientation}&query=${encodeURIComponent(this.imageQuery)}`);
-      if (!response.ok) throw new Error('Failed to load metadata');
+      // A 503 means the provider is unavailable — fall through to the catch so we
+      // go offline instead of mistaking it for an empty search result.
+      if (!response.ok) throw new Error(`Failed to load metadata (HTTP ${response.status})`);
       const data = await response.json();
       this.metadata = data.images;
       console.log(`Loaded ${this.metadata.length} metadata items`);
@@ -152,11 +158,16 @@ class TheWall {
 
       // Check if no images were found
       if (this.metadata.length === 0) {
-        console.warn(`No images found for query "${this.imageQuery}", reverting to previous query "${this.previousImageQuery}"`);
-        this.imageQuery = this.previousImageQuery;
+        if (allowFallback && this.imageQuery !== this.previousImageQuery) {
+          console.warn(`No images found for query "${this.imageQuery}", reverting to previous query "${this.previousImageQuery}"`);
+          this.imageQuery = this.previousImageQuery;
+          this.showWarningMessage();
+          // Retry once only — never again from within the retry.
+          await this.loadMetadata(count, false, false);
+          return;
+        }
+        console.warn(`No images found for query "${this.imageQuery}" and no fallback available`);
         this.showWarningMessage();
-        // Reload with previous query without showing loading screen
-        await this.loadMetadata(count, false);
         return;
       }
 
