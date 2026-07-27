@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- No maximum-scale/user-scalable=no: blocking zoom fails WCAG 1.4.4, and the
+       double-tap-to-fullscreen handler already suppresses accidental zoom. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,10 +24,12 @@
     </svg>
   </div>
   <div id="image-container">
-    <img id="current-image" class="slide-image active" alt="Slideshow image">
-    <img id="next-image" class="slide-image" alt="Next slideshow image">
+    <!-- alt is set from the photo's attribution as each image is displayed; the
+         off-screen buffer is left empty so it is not announced twice. -->
+    <img id="current-image" class="slide-image active" alt="">
+    <img id="next-image" class="slide-image" alt="">
   </div>
-  <div id="attribution" class="hidden">
+  <div id="attribution" class="hidden" role="status" aria-live="polite">
     <div id="attribution-content">
       <div class="attribution-photographer" id="attribution-photographer"></div>
       <div class="attribution-details" id="attribution-details"></div>

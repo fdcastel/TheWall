@@ -16,5 +16,6 @@ e2e
 *.test.js
 .DS_Store
 tmp
-samples/*
-!samples/.gitkeep
+# 12 MB of 4K JPEGs that only exist for the local-provider demo and tests.
+# The Dockerfile creates an empty /app/samples for you to bind-mount over.
+samples/

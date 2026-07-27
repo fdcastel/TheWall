@@ -33,8 +33,8 @@ Ideal for
 ### Keyboard / Remote
 - `N` or `→`: Next image
 - `P` or `←`: Previous image
-- `I` or `Space`: Toggle image attribution
-- `S` or `5`: Search for different images (remote providers only)
+- `A`, `Space` or `↓`: Toggle image attribution
+- `S`, `5` or `↑`: Search for different images (remote providers only)
 - `F`: Toggle fullscreen
 
 ### Mouse

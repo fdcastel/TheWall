@@ -28,12 +28,34 @@ export default {
         return handleMetadata(url, env, config);
       }
 
+      if (url.pathname === '/api/images/track') {
+        return handleTrack(url, config);
+      }
+
       return Response.json({ error: 'Not found' }, { status: 404 });
     }
 
     return env.ASSETS.fetch(request);
   }
 };
+
+// Unsplash requires applications to report a photo as used. Fire-and-forget:
+// a tracking failure must never disturb the slideshow, so this always answers
+// 204.
+async function handleTrack(url, config) {
+  const location = url.searchParams.get('location');
+  if (location) {
+    try {
+      const provider = getProvider(config);
+      if (typeof provider.trackDownload === 'function') {
+        await provider.trackDownload(location);
+      }
+    } catch (err) {
+      console.error(`Download tracking failed: ${err.message}`);
+    }
+  }
+  return new Response(null, { status: 204 });
+}
 
 async function handleMetadata(url, env, config) {
   const parsed = parseMetadataQuery((key) => url.searchParams.get(key) ?? undefined, config);

@@ -20,6 +20,7 @@ class TheWall {
     this.currentIndex = 0;
     this.metadata = [];
     this.prefetched = new Set();
+    this.trackedDownloads = new Set(); // photo ids already reported to the provider
     this.prefetchingImages = new Map(); // Map of index -> Image object for ongoing prefetches
     this.offline = false;
     this.autoAdvanceInterval = null;
@@ -405,15 +406,20 @@ class TheWall {
 
     // Load new image into next element
     nextImg.src = image.url;
+    // Describe the incoming image for screen readers; the outgoing one is
+    // cleared on swap so the off-screen buffer is not announced.
+    nextImg.alt = image.user?.name ? `Photo by ${image.user.name}` : 'Slideshow image';
 
     nextImg.onload = () => {
       console.log(`Image loaded successfully ${this.currentIndex}: ${image.url}`);
 
       this.dismissLoadingScreen();
+      this.trackDownload(image);
 
       // Swap active classes for crossfade
       nextImg.classList.add('active');
       activeImg.classList.remove('active');
+      activeImg.alt = '';
       this.activeImageIndex = nextIndex;
 
       // Schedule attribution to show after 5 seconds
@@ -451,6 +457,16 @@ class TheWall {
     if (!this.offline && !this.metadataExhausted && this.currentIndex >= this.metadata.length - 2) {
       this.loadMoreMetadata();
     }
+  }
+
+  // Unsplash's API guidelines require reporting a photo as used once it is
+  // actually shown. Fired at most once per photo per session, and deliberately
+  // best-effort: the slideshow must not care whether this succeeds.
+  trackDownload(image) {
+    if (!image.download_location || this.trackedDownloads.has(image.id)) return;
+    this.trackedDownloads.add(image.id);
+    fetch(`/api/images/track?location=${encodeURIComponent(image.download_location)}`)
+      .catch(err => console.log(`Download tracking request failed: ${err.message}`));
   }
 
   createSafeLink(href, text) {

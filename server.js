@@ -143,6 +143,22 @@ fastify.get('/api/images/metadata', async (request, reply) => {
   return { images };
 });
 
+// Unsplash requires applications to report a photo as used. Fire-and-forget:
+// a tracking failure must never disturb the slideshow, so this always answers
+// 204. Static segments beat the /api/images/* wildcard, so this route is
+// reachable even with the local provider registered.
+fastify.get('/api/images/track', async (request, reply) => {
+  const { location } = request.query;
+  if (location && typeof imageProvider.trackDownload === 'function') {
+    try {
+      await imageProvider.trackDownload(location);
+    } catch (err) {
+      logger.error(`Download tracking failed: ${err.message}`);
+    }
+  }
+  return reply.code(204).send();
+});
+
 fastify.get('/api/config', async (_request, reply) => {
   logger.info('Config request');
   reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');

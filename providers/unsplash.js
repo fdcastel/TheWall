@@ -30,6 +30,9 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
 
       return photos.map((photo) => ({
         id: photo.id,
+        // Carried through so the client can report the photo as used; see
+        // trackDownload below.
+        download_location: photo.links?.download_location ?? null,
         // `urls.raw` is the uncapped original — routinely 6000x4000 and ~2 MB,
         // decoded in full on a TV only to be drawn downscaled. Unsplash serves
         // raw URLs through Imgix and documents these parameters; `fit=max`
@@ -44,6 +47,28 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
         created_at: photo.created_at,
         location: photo.location ? { name: photo.location.name } : { name: null }
       }));
+    },
+
+    /**
+     * Unsplash's API guidelines require a GET to the photo's
+     * `download_location` every time the application actually uses a photo.
+     * This is tracking only: it does not transfer the image.
+     *
+     * The location arrives from the browser, and this request carries the
+     * access key, so the host is checked before it is sent anywhere — an
+     * unchecked URL here would be an SSRF that leaks the key to any host the
+     * caller names.
+     */
+    async trackDownload(location) {
+      if (typeof location !== 'string' || !location.startsWith('https://api.unsplash.com/photos/')) {
+        throw new Error('Refusing to track a download location outside api.unsplash.com');
+      }
+      logger.info?.(`Tracking Unsplash download: ${location}`);
+      await fetchJson(location, {
+        headers: { 'Authorization': `Client-ID ${accessKey}` },
+        logger,
+        label: 'Unsplash download'
+      });
     }
   };
 }

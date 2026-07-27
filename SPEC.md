@@ -103,15 +103,19 @@ When users navigate rapidly through images (e.g., pressing next multiple times i
 ### Layout
 - Single-page application with no visible navigation elements
 - Full-screen image container
-- Attribution overlay (bottom-left or bottom-right, alternated, initially hidden)
+- Attribution overlay (bottom of the viewport, full width up to a maximum, initially hidden)
 - Offline indicator (top-right, only visible in offline mode)
 - Search dialog (top-center, initially hidden)
 
 ### Keyboard Controls / Remote Control (on TVs)
-- `→` (right arrow): Next image
-- `←` (left arrow): Previous image
-- `↓` (down arrow): Toggle attribution visibility
-- `↑` (up arrow): Open search dialog to change search query (disabled for local provider)
+- `N` or `→` (right arrow): Next image
+- `P` or `←` (left arrow): Previous image
+- `A`, `Space` or `↓` (down arrow): Toggle attribution visibility
+- `S`, `5` or `↑` (up arrow): Open search dialog to change search query (disabled for local provider)
+- `F`: Toggle fullscreen
+
+The arrow and numeric bindings exist for TV remotes, which typically emit only a
+D-pad and digits. The letter bindings are the desktop equivalents.
 
 ### Touch Controls
 - Swipe left: Next image
@@ -190,6 +194,15 @@ The application supports multiple image providers that can be selected at config
     - `href`: Link to photographer's profile
   - `created_at`: ISO date string of image creation (null for local provider and Pexels)
   - `location.name`: Location name where image was taken (null for local provider and Pexels)
+  - `download_location`: Unsplash download-tracking URL (null for local provider and Pexels) — see the download tracking endpoint below
+
+### Download Tracking Endpoint
+- **Path**: `/api/images/track`
+- **Method**: GET
+- **Query Parameters**: `location` — the `download_location` from the image metadata
+- **Description**: Unsplash's API guidelines require applications to issue a GET to a photo's `download_location` whenever the photo is actually used. The client calls this once per photo per session, when the image first finishes loading. Providers without such a requirement ignore it.
+- **Response**: Always `204 No Content`, including on failure. Tracking is best-effort and must never disturb playback.
+- **Host allow-list**: The `location` arrives from the browser and the outbound request carries the provider API key, so it is only sent when the URL starts with `https://api.unsplash.com/photos/`. Anything else is refused without a request being made — an unchecked URL here would leak the key to an attacker-chosen host.
 
 ### Image Serving Endpoint (Local Provider Only, Docker/Node runtime only)
 - **Path**: `/api/images/{filename}`
