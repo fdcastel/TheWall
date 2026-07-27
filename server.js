@@ -5,36 +5,26 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 
 import { createLocalProvider } from './providers/local.js';
-import { createUnsplashProvider } from './providers/unsplash.js';
-import { createPexelsProvider } from './providers/pexels.js';
-import { parseIntEnv } from './lib/env.js';
+import { getProvider } from './lib/provider.js';
+import { readConfig, publicConfig, parseMetadataQuery } from './lib/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const fastify = Fastify({ logger: true });
 
-// Environment variables
-const PROVIDER = process.env.THEWALL_PROVIDER || 'local';
-const LOCAL_FOLDER = process.env.THEWALL_LOCAL_FOLDER || './samples';
-const IMAGE_INTERVAL = parseIntEnv(process.env.THEWALL_IMAGE_INTERVAL, 30);
-const IMAGE_QUERY = process.env.THEWALL_IMAGE_QUERY || 'nature';
-const METADATA_COUNT = parseIntEnv(process.env.THEWALL_METADATA_COUNT, 30);
-const PREFETCH_COUNT = parseIntEnv(process.env.THEWALL_PREFETCH_COUNT, 2);
+const config = readConfig(process.env);
+const PROVIDER = config.provider;
 
 const logger = fastify.log;
 
 // Build the provider; abort startup if configuration is incomplete.
+// `local` is constructed here rather than in lib/provider.js so that the
+// Workers bundle never has to pull in node:fs.
 let imageProvider;
 try {
-  if (PROVIDER === 'local') {
-    imageProvider = createLocalProvider({ folder: LOCAL_FOLDER, logger });
-  } else if (PROVIDER === 'unsplash') {
-    imageProvider = createUnsplashProvider({ accessKey: process.env.THEWALL_PROVIDER_KEY, logger });
-  } else if (PROVIDER === 'pexels') {
-    imageProvider = createPexelsProvider({ apiKey: process.env.THEWALL_PROVIDER_KEY, logger });
-  } else {
-    throw new Error(`Unknown THEWALL_PROVIDER: ${PROVIDER}`);
-  }
+  imageProvider = PROVIDER === 'local'
+    ? createLocalProvider({ folder: config.localFolder, logger })
+    : getProvider(config);
 } catch (err) {
   // Using console.error rather than logger.fatal so the message is visible
   // before the Fastify logger has been initialised in some test environments.
@@ -114,32 +104,23 @@ if (PROVIDER === 'local') {
 
 // ---------- API routes ----------
 
-const metadataQuerySchema = {
-  type: 'object',
-  properties: {
-    count: { type: 'integer', minimum: 1, maximum: 100 },
-    start: { type: 'integer', minimum: 0 },
-    orientation: { type: 'string', enum: ['landscape', 'portrait'] },
-    query: { type: 'string', maxLength: 200 }
-  },
-  additionalProperties: false
-};
+// Validation lives in lib/config.js so this route and the Workers route cannot
+// drift; they previously encoded the same rules independently, in two different
+// styles, and both ended up accepting a `count` no provider would honour.
+fastify.get('/api/images/metadata', async (request, reply) => {
+  const parsed = parseMetadataQuery((key) => request.query[key], config);
+  if (!parsed.ok) {
+    return reply.code(400).send({ error: `Invalid ${parsed.field}` });
+  }
+  const { count, orientation, query, start, width } = parsed.params;
 
-fastify.get('/api/images/metadata', { schema: { querystring: metadataQuerySchema } }, async (request, reply) => {
-  const {
-    count = METADATA_COUNT,
-    orientation = 'landscape',
-    query = IMAGE_QUERY,
-    start = 0
-  } = request.query;
-
-  logger.info(`Metadata request: count=${count}, orientation=${orientation}, query=${query}, start=${start}`);
+  logger.info(`Metadata request: count=${count}, orientation=${orientation}, query=${query}, start=${start}, width=${width}`);
 
   reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
   let images;
   try {
-    images = await imageProvider.getMetadata({ count, orientation, query, start });
+    images = await imageProvider.getMetadata(parsed.params);
   } catch (err) {
     // 503, not an empty list: the client must be able to distinguish an
     // unavailable provider (go offline) from a query that matched nothing
@@ -154,13 +135,7 @@ fastify.get('/api/images/metadata', { schema: { querystring: metadataQuerySchema
 fastify.get('/api/config', async (_request, reply) => {
   logger.info('Config request');
   reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-  return {
-    provider: PROVIDER,
-    imageInterval: IMAGE_INTERVAL,
-    imageQuery: IMAGE_QUERY,
-    metadataCount: METADATA_COUNT,
-    prefetchCount: PREFETCH_COUNT
-  };
+  return publicConfig(config);
 });
 
 fastify.get('/api/ping', async () => ({ status: 'ok' }));

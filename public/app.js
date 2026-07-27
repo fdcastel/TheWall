@@ -1,5 +1,17 @@
 // TheWall Client Application
 
+// Last-resort values, used only if GET /api/config itself fails — in which case
+// the server is unreachable and the app is heading for offline mode anyway.
+// The real defaults live in lib/config.js and arrive over /api/config; this is
+// not a second place to configure the app.
+const FALLBACK_CONFIG = {
+  provider: 'unsplash',
+  imageInterval: 30,
+  imageQuery: 'nature',
+  metadataCount: 30,
+  prefetchCount: 2
+};
+
 class TheWall {
   constructor() {
     this.currentIndex = 0;
@@ -10,12 +22,12 @@ class TheWall {
     this.autoAdvanceInterval = null;
     this.attributionShowTimeout = null;
     this.attributionHideTimeout = null;
-    this.imageInterval = 30; // seconds (default, will be overridden by config)
-    this.provider = 'local'; // default, will be overridden by config
-    this.imageQuery = 'nature'; // default, will be overridden by config
-    this.previousImageQuery = 'nature'; // store previous query for fallback
-    this.metadataCount = 30; // default, will be overridden by config
-    this.prefetchCount = 2; // default, will be overridden by config
+    this.provider = FALLBACK_CONFIG.provider;
+    this.imageInterval = FALLBACK_CONFIG.imageInterval; // seconds
+    this.imageQuery = FALLBACK_CONFIG.imageQuery;
+    this.previousImageQuery = FALLBACK_CONFIG.imageQuery; // last query known to return results
+    this.metadataCount = FALLBACK_CONFIG.metadataCount;
+    this.prefetchCount = FALLBACK_CONFIG.prefetchCount;
     this.firstImageLoaded = false;
     this.loadingMore = false;
     this.currentOrientation = this.getOrientation();
@@ -124,6 +136,10 @@ class TheWall {
       this.provider = config.provider;
       this.imageInterval = config.imageInterval;
       this.imageQuery = config.imageQuery;
+      // The configured query is the baseline, so it is also what a failed user
+      // search reverts to. Leaving this at the constructor value meant a search
+      // that returned nothing fell back to a query the user never chose.
+      this.previousImageQuery = config.imageQuery;
       this.metadataCount = config.metadataCount;
       this.prefetchCount = config.prefetchCount;
       console.log(`Config loaded: provider=${this.provider}, interval=${this.imageInterval}s, query=${this.imageQuery}, metadataCount=${this.metadataCount}, prefetchCount=${this.prefetchCount}`);

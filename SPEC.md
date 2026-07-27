@@ -169,10 +169,12 @@ The application supports multiple image providers that can be selected at config
 - **Path**: `/api/images/metadata`
 - **Method**: GET
 - **Query Parameters** (validated on both runtimes — invalid values return `400`):
-  - `count` (optional, integer, `1..100`): Number of images to return (default: `THEWALL_METADATA_COUNT`, 30)
+  - `count` (optional, integer, `1..80`): Number of images to return (default: `THEWALL_METADATA_COUNT`, 30). The ceiling is the largest page any provider supports (Pexels `per_page`); each provider additionally clamps to its own documented maximum — Unsplash `/photos/random` allows at most 30
   - `start` (optional, integer, `>= 0`): Pagination offset passed to the provider (default: 0; used by Pexels, ignored by Unsplash's random endpoint and by local)
   - `orientation` (optional, enum): `landscape` or `portrait` (default: `landscape`)
   - `query` (optional, string, max length 200): Search query for filtering images (ignored for local provider)
+  - `width` (optional, integer, `640..3840`): Target image width in device pixels (default: 1920). Remote providers use it to request a display-sized rendition instead of the full-size original; ignored by the local provider
+- Validation rules are defined once, in `lib/config.js`, and applied by both runtimes, which must return identical status codes for identical input
 - **Response**: JSON object `{ images: [...] }` with `Cache-Control: no-cache, no-store, must-revalidate`.
   - **Provider failure returns `503`** with `{ images: [], error: "provider_unavailable" }`. A failure means an unreachable or erroring provider API, an unparseable response, a missing API key, or an unreadable local folder. The client treats a non-2xx metadata response as loss of connectivity and enters offline mode.
   - **An empty result returns `200`** with `{ images: [] }`. This means the provider answered normally and the query matched nothing — including a `start` offset paged past the end of a local folder. The client treats it as a bad search term, warns, and falls back to the previous query **once**.

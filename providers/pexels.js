@@ -7,8 +7,11 @@ export function createPexelsProvider({ apiKey, logger = console }) {
 
   return {
     name: 'pexels',
+    // /v1/search documents "Default: 15 | Max: 80" for per_page.
+    maxCount: 80,
 
     async getMetadata({ count = 30, orientation = 'landscape', query = '', start = 0 } = {}) {
+      count = Math.min(count, 80);
       // Pexels pagination is 1-indexed.
       const page = Math.floor(start / count) + 1;
       const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${page}&orientation=${orientation}`;

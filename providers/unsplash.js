@@ -7,8 +7,11 @@ export function createUnsplashProvider({ accessKey, logger = console }) {
 
   return {
     name: 'unsplash',
+    // /photos/random documents "Default: 1; max: 30".
+    maxCount: 30,
 
     async getMetadata({ count = 30, orientation = 'landscape', query = '' } = {}) {
+      count = Math.min(count, 30);
       // /search/photos does not return the `location` field, which attribution
       // depends on. /photos/random does — at the cost of no pagination.
       // The access key goes in the Authorization header, not the query string:
