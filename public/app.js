@@ -4,6 +4,9 @@
 // the server is unreachable and the app is heading for offline mode anyway.
 // The real defaults live in lib/config.js and arrive over /api/config; this is
 // not a second place to configure the app.
+// How long the attribution card waits before appearing, and how long it stays.
+const ATTRIBUTION_DELAY_MS = 5000;
+
 const FALLBACK_CONFIG = {
   provider: 'unsplash',
   imageInterval: 30,
@@ -30,6 +33,7 @@ class TheWall {
     this.prefetchCount = FALLBACK_CONFIG.prefetchCount;
     this.firstImageLoaded = false;
     this.loadingMore = false;
+    this.metadataExhausted = false; // set once a pagination request returns nothing
     this.currentOrientation = this.getOrientation();
 
     this.imageElements = [
@@ -278,12 +282,15 @@ class TheWall {
       }
     }, true); // Use capture phase for global handling
 
-    // Wheel for navigation
+    // Wheel for navigation. `passive: false` is required: wheel listeners on
+    // document-level nodes default to passive in every browser except Safari,
+    // and preventDefault() inside a passive listener is ignored with a console
+    // warning. It only appeared to work because body has overflow: hidden.
     document.addEventListener('wheel', (e) => {
       e.preventDefault();
       if (e.deltaY > 0) this.nextImage();
       else this.prevImage();
-    });
+    }, { passive: false });
 
     // Touch gestures with zone-based navigation
     document.addEventListener('touchstart', (e) => {
@@ -352,9 +359,6 @@ class TheWall {
             }
             this.lastTapTime = now;
           }
-        } else {
-          // Long press
-          // Menu functionality removed
         }
       }
     });
@@ -387,13 +391,12 @@ class TheWall {
     const isAttributionVisible = !this.attributionElement.classList.contains('hidden');
 
     if (isAttributionVisible) {
-      // If visible, keep it visible but clear the hide timeout so it doesn't disappear mid-transition
-      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+      // Keep it visible, but stop it disappearing mid-transition.
+      clearTimeout(this.attributionHideTimeout);
     } else {
-      // If hidden, ensure it stays hidden and clear any pending show timeouts
+      // Keep it hidden, and drop any pending show.
       this.attributionElement.classList.add('hidden');
-      if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
-      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
+      this.clearAttributionTimers();
     }
 
     const activeImg = this.imageElements[this.activeImageIndex];
@@ -441,8 +444,11 @@ class TheWall {
 
     this.prefetchImages();
 
-    // Fetch more metadata if nearing the end (spec Appendix: fire at length - 2)
-    if (!this.offline && this.currentIndex >= this.metadata.length - 2) {
+    // Fetch more metadata if nearing the end (spec Appendix: fire at length - 2).
+    // `metadataExhausted` stops this once a page comes back empty: the length
+    // then stops growing, so the condition stays true and every advance -- and
+    // every auto-advance tick -- fired another pointless request forever.
+    if (!this.offline && !this.metadataExhausted && this.currentIndex >= this.metadata.length - 2) {
       this.loadMoreMetadata();
     }
   }
@@ -487,6 +493,11 @@ class TheWall {
       const response = await fetch(this.metadataUrl({ count: this.metadataCount, start: nextStart }));
       if (!response.ok) throw new Error('Failed to load more metadata');
       const data = await response.json();
+      if (data.images.length === 0) {
+        this.metadataExhausted = true;
+        console.log(`No further metadata beyond ${nextStart}; stopping pagination`);
+        return;
+      }
       this.metadata.push(...data.images);
       console.log(`Loaded additional ${data.images.length} metadata items, total: ${this.metadata.length}`);
     } catch (err) {
@@ -543,37 +554,37 @@ class TheWall {
       this.attributionDetails.appendChild(node);
     });
 
-    // Logic for showing/hiding attribution
+    // Already visible (kept up from displayImage) — the text just changed under
+    // it, so restart its dwell. Otherwise show it after the delay, then hide it.
     if (!this.attributionElement.classList.contains('hidden')) {
-      // It is currently visible (kept visible from displayImage)
-      // We just updated the text to the new image info.
-      // Reset hide timer to hide it after 5 seconds from now.
-      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
-      this.attributionHideTimeout = setTimeout(() => {
-        this.attributionElement.classList.add('hidden');
-      }, 5000);
+      this.restartHideTimer();
     } else {
-      // It is hidden. Default behavior: show after 5 seconds.
-      if (this.attributionShowTimeout) clearTimeout(this.attributionShowTimeout);
+      clearTimeout(this.attributionShowTimeout);
       this.attributionShowTimeout = setTimeout(() => {
         this.attributionElement.classList.remove('hidden');
-
-        // Hide attribution 5 seconds after showing
-        if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
-        this.attributionHideTimeout = setTimeout(() => {
-          this.attributionElement.classList.add('hidden');
-        }, 5000);
-      }, 5000);
+        this.restartHideTimer();
+      }, ATTRIBUTION_DELAY_MS);
     }
+  }
+
+  clearAttributionTimers() {
+    clearTimeout(this.attributionShowTimeout);
+    clearTimeout(this.attributionHideTimeout);
+    this.attributionShowTimeout = null;
+    this.attributionHideTimeout = null;
+  }
+
+  restartHideTimer() {
+    clearTimeout(this.attributionHideTimeout);
+    this.attributionHideTimeout = setTimeout(() => {
+      this.attributionElement.classList.add('hidden');
+    }, ATTRIBUTION_DELAY_MS);
   }
 
   toggleAttribution() {
     this.attributionElement.classList.toggle('hidden');
     if (!this.attributionElement.classList.contains('hidden')) {
-      if (this.attributionHideTimeout) clearTimeout(this.attributionHideTimeout);
-      this.attributionHideTimeout = setTimeout(() => {
-        this.attributionElement.classList.add('hidden');
-      }, 5000);
+      this.restartHideTimer();
     }
   }
 
@@ -628,17 +639,18 @@ class TheWall {
     this.searchInput.value = this.imageQuery;
     this.searchDialog.classList.remove('hidden');
 
-    // Add blur event listener to close dialog when input loses focus
-    const blurHandler = () => {
+    // Close the dialog when the input loses focus. `once: true` is what keeps
+    // these from stacking: the handler previously removed itself only from
+    // inside itself, so closing via Escape left it attached and every reopen
+    // added another.
+    this.searchInput.addEventListener('blur', () => {
       // Small delay to allow Enter key to be processed first
       setTimeout(() => {
         if (!this.searchDialog.classList.contains('hidden')) {
           this.closeSearchDialog();
         }
       }, 150);
-      this.searchInput.removeEventListener('blur', blurHandler);
-    };
-    this.searchInput.addEventListener('blur', blurHandler);
+    }, { once: true });
 
     setTimeout(() => {
       this.searchInput.focus();
@@ -688,6 +700,7 @@ class TheWall {
     this.prefetched.clear();
     this.prefetchingImages.clear();
     this.currentIndex = 0;
+    this.metadataExhausted = false;
     this.offlineImages = null;
     this.currentOfflineIndex = null;
 
@@ -699,55 +712,64 @@ class TheWall {
     this.displayImage();
   }
 
-  nextImage() {
+  // `step` is +1 or -1. Offline navigation walks the prefetched pool instead of
+  // the full metadata list, since those are the only images actually available.
+  advance(step) {
     if (this.metadata.length === 0) return;
+    const label = step > 0 ? 'Next image' : 'Previous image';
+
     if (this.offline && this.offlineImages) {
       if (this.offlineImages.length === 0) {
-        console.log('Next image (offline): no prefetched images, navigation skipped');
+        console.log(`${label} (offline): no prefetched images, navigation skipped`);
         return;
       }
-      this.currentOfflineIndex = (this.currentOfflineIndex + 1) % this.offlineImages.length;
+      const total = this.offlineImages.length;
+      this.currentOfflineIndex = (this.currentOfflineIndex + step + total) % total;
       this.currentIndex = this.offlineImages[this.currentOfflineIndex];
-      console.log(`Next image (offline): ${this.currentIndex}`);
+      console.log(`${label} (offline): ${this.currentIndex}`);
     } else {
-      this.currentIndex = (this.currentIndex + 1) % this.metadata.length;
-      console.log(`Next image: ${this.currentIndex}`);
+      const total = this.metadata.length;
+      this.currentIndex = (this.currentIndex + step + total) % total;
+      console.log(`${label}: ${this.currentIndex}`);
     }
+
     this.displayImage();
     this.resetAutoAdvance();
   }
 
+  nextImage() {
+    this.advance(1);
+  }
+
   prevImage() {
-    if (this.metadata.length === 0) return;
-    if (this.offline && this.offlineImages) {
-      if (this.offlineImages.length === 0) {
-        console.log('Previous image (offline): no prefetched images, navigation skipped');
-        return;
-      }
-      this.currentOfflineIndex = (this.currentOfflineIndex - 1 + this.offlineImages.length) % this.offlineImages.length;
-      this.currentIndex = this.offlineImages[this.currentOfflineIndex];
-      console.log(`Previous image (offline): ${this.currentIndex}`);
-    } else {
-      this.currentIndex = (this.currentIndex - 1 + this.metadata.length) % this.metadata.length;
-      console.log(`Previous image: ${this.currentIndex}`);
-    }
-    this.displayImage();
-    this.resetAutoAdvance();
+    this.advance(-1);
+  }
+
+  // How far `index` sits ahead of the current image in display order, which
+  // wraps. A plain `index > currentIndex` comparison silently broke at the end
+  // of a finite list: at the last image the next index wraps to 0, which is not
+  // greater than currentIndex, so the image was never recorded as prefetched
+  // and never joined the offline pool.
+  distanceAhead(index) {
+    const total = this.metadata.length;
+    if (total === 0) return 0;
+    return (index - this.currentIndex + total) % total;
   }
 
   prefetchImages() {
     if (this.offline) return;
-    
-    // Cancel any ongoing prefetches for images at or behind current position
+
+    // Cancel prefetches that are no longer within the upcoming window, i.e.
+    // ones the user has navigated past.
     for (const [index, imgObj] of this.prefetchingImages.entries()) {
-      if (index <= this.currentIndex) {
+      if (this.distanceAhead(index) > this.prefetchCount) {
         console.log(`Cancelling stale prefetch for image ${index} (current: ${this.currentIndex})`);
         imgObj.cancelled = true; // Mark as cancelled
         imgObj.img.src = ''; // Cancel the ongoing request
         this.prefetchingImages.delete(index);
       }
     }
-    
+
     // Only prefetch images AHEAD of current position
     const prefetchCount = this.prefetchCount; // N images ahead (not including current)
     for (let i = 1; i <= prefetchCount; i++) { // Start at 1 to skip current image
@@ -761,8 +783,13 @@ class TheWall {
       const imgObj = { img, cancelled: false };
       
       img.onload = () => {
-        // Only mark as prefetched if not cancelled AND still ahead of current position
-        if (!imgObj.cancelled && index > this.currentIndex) {
+        // Keep it only if it was not cancelled and is still strictly upcoming.
+        // Distance 0 means the user advanced onto it while it was in flight; it
+        // is the displayed image, not a prefetch. `distanceAhead` is wrap-aware,
+        // which `index > currentIndex` was not -- that comparison dropped every
+        // prefetch once the index wrapped at the end of a finite list.
+        const ahead = this.distanceAhead(index);
+        if (!imgObj.cancelled && ahead >= 1 && ahead <= this.prefetchCount) {
           console.log(`Image prefetched successfully ${index}: ${image.url}`);
           this.prefetched.add(index);
         } else if (imgObj.cancelled) {
