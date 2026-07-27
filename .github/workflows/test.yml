@@ -33,6 +33,70 @@ jobs:
         env:
           THEWALL_TEST_RUNTIME: node
 
+  worker:
+    name: Cloudflare Workers runtime smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # worker.js is the production deploy target but was previously executed by
+      # no CI job at all: the `node` job runs server.js and the `docker` job
+      # builds an image around server.js. This covers it, without needing a
+      # provider API key.
+      - name: Start wrangler dev
+        run: npx wrangler dev --port 8788 > wrangler.log 2>&1 &
+
+      - name: Wait for worker readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8788/api/ping > /dev/null; then
+              echo "Worker is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Worker did not become ready in 60 seconds." >&2
+          cat wrangler.log || true
+          exit 1
+
+      - name: Smoke test /api/ping
+        run: curl -fsS http://localhost:8788/api/ping | grep -q '"status":"ok"'
+
+      - name: Smoke test /api/config
+        run: |
+          response=$(curl -fsS http://localhost:8788/api/config)
+          echo "config response: $response"
+          echo "$response" | grep -q '"provider":"unsplash"'
+          echo "$response" | grep -q '"imageInterval":30'
+
+      # No THEWALL_PROVIDER_KEY is set here, so the provider cannot be built.
+      # That must surface as 503 rather than an empty 200 -- an empty 200 is
+      # indistinguishable from "no search results" and used to drive the client
+      # into an unbounded retry loop.
+      - name: Provider failure must return 503, not an empty 200
+        run: |
+          code=$(curl -s -o body.txt -w '%{http_code}' 'http://localhost:8788/api/images/metadata?count=3')
+          echo "status=$code body=$(cat body.txt)"
+          test "$code" = "503"
+          grep -q '"error":"provider_unavailable"' body.txt
+
+      - name: Static assets are served by the ASSETS binding
+        run: curl -fsS http://localhost:8788/ | grep -q '<title>TheWall</title>'
+
+      - name: Show wrangler log
+        if: always()
+        run: cat wrangler.log || true
+
   docker:
     name: Docker image build & smoke test
     runs-on: ubuntu-latest

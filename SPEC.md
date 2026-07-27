@@ -173,7 +173,10 @@ The application supports multiple image providers that can be selected at config
   - `start` (optional, integer, `>= 0`): Pagination offset passed to the provider (default: 0; used by Pexels, ignored by Unsplash's random endpoint and by local)
   - `orientation` (optional, enum): `landscape` or `portrait` (default: `landscape`)
   - `query` (optional, string, max length 200): Search query for filtering images (ignored for local provider)
-- **Response**: JSON object `{ images: [...] }` with `Cache-Control: no-cache, no-store, must-revalidate`. Provider errors are swallowed and returned as `{ images: [] }` to preserve the front-end's offline/empty contract.
+- **Response**: JSON object `{ images: [...] }` with `Cache-Control: no-cache, no-store, must-revalidate`.
+  - **Provider failure returns `503`** with `{ images: [], error: "provider_unavailable" }`. A failure means an unreachable or erroring provider API, an unparseable response, a missing API key, or an unreadable local folder. The client treats a non-2xx metadata response as loss of connectivity and enters offline mode.
+  - **An empty result returns `200`** with `{ images: [] }`. This means the provider answered normally and the query matched nothing — including a `start` offset paged past the end of a local folder. The client treats it as a bad search term, warns, and falls back to the previous query **once**.
+  - These two cases must stay distinguishable. Collapsing a failure into an empty `200` makes the client mistake an outage for a bad query and retry the identical request without bound.
 - **Environment Variables**:
   - `THEWALL_PROVIDER_KEY`: Required for Unsplash and Pexels providers (must match the API key type for the selected `THEWALL_PROVIDER`)
 - **Image Metadata Structure** (some fields may be null due absence by provider):
@@ -253,9 +256,16 @@ The application supports multiple image providers that can be selected at config
 - API endpoints should be testable independently
 - Image loading, prefetching and caching should be verifiable
 - Navigation and offline mode should be testable
-- End-to-end tests are driven by Playwright. The default runtime is `wrangler dev` (Cloudflare Workers path). Local-provider tests — those that exercise the Docker-only `/api/images/*` route — are gated on `THEWALL_TEST_RUNTIME=node` and, when that variable is set, each test spawns its own `node server.js` instance (via the shared helper in `e2e/_server.js`) with the `local` provider on a dedicated port
-- Provider-specific tests skip cleanly when `THEWALL_PROVIDER_KEY` is absent, so `npm test` runs without credentials
-- CI (`.github/workflows/test.yml`) runs two jobs on `ubuntu-latest`: a `node` job that runs the local-provider Playwright suite against Fastify, and a `docker` job that builds the image and smoke-tests `/api/ping` and `/api/config`. No API-key secrets are required in CI; the Cloudflare runtime is covered by per-PR Workers preview deployments instead
+- End-to-end tests are driven by Playwright. There is no global `webServer`: every test file boots the Fastify server it needs through the `useServer`/`useLocalServer` helpers in `e2e/_server.js`, on port 3100. `workers: 1` and `fullyParallel: false` let files take turns on that port
+- Tests fall into three tiers:
+  - **Input handling** (`unified-controls`) — wheel, double-click and overlay behaviour. Provider-agnostic, so it runs against the `local` provider and is never skipped
+  - **Local-provider** — need the Docker/Node-only `/api/images/*` route and filesystem behaviour; gated on `THEWALL_TEST_RUNTIME=node`
+  - **Provider** — need a real Unsplash/Pexels key; gated on `THEWALL_PROVIDER_KEY`
+- `npm test` runs without credentials and must exit 0
+- CI (`.github/workflows/test.yml`) runs three jobs on `ubuntu-latest`, none of which needs an API-key secret:
+  - `node` — the Playwright suite against Fastify with `THEWALL_TEST_RUNTIME=node`
+  - `worker` — boots `wrangler dev` and smoke-tests `worker.js`, the production deploy target: `/api/ping`, `/api/config`, static assets via the `ASSETS` binding, and that a provider failure returns `503` rather than an empty `200`
+  - `docker` — builds the image and smoke-tests `/api/ping` and `/api/config`
 
 ## Appendix: Example Application Behavior
 

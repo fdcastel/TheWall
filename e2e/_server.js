@@ -1,5 +1,9 @@
 import { spawn } from 'node:child_process';
 import http from 'node:http';
+import { test } from './_fixtures.js';
+
+const LOCAL_ENV = { THEWALL_PROVIDER: 'local', THEWALL_LOCAL_FOLDER: './samples' };
+const DEFAULT_PORT = 3100;
 
 /**
  * Spawn `node server.js` with the given env on the given port and resolve when
@@ -20,6 +24,32 @@ export async function startServer({ port, env, timeoutMs = 20_000 }) {
   }
   child.kill();
   throw new Error(`Server on port ${port} did not become ready within ${timeoutMs}ms`);
+}
+
+/**
+ * Register the beforeAll/afterAll hooks that boot a Fastify server for the
+ * current test file and point its baseURL at it. Call at file scope.
+ *
+ * The suite runs with `workers: 1` and `fullyParallel: false`, so files take
+ * turns on the same port rather than each needing its own.
+ */
+export function useServer({ env, port = DEFAULT_PORT }) {
+  let serverProcess;
+
+  test.beforeAll(async () => {
+    serverProcess = await startServer({ port, env });
+  });
+
+  test.afterAll(async () => {
+    if (serverProcess) serverProcess.kill();
+  });
+
+  test.use({ baseURL: `http://localhost:${port}` });
+}
+
+/** The local-provider server, used by every test that doesn't need a real API key. */
+export function useLocalServer(port = DEFAULT_PORT) {
+  useServer({ env: LOCAL_ENV, port });
 }
 
 function ping(port) {

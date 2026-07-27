@@ -1,7 +1,11 @@
 import { test, expect } from './_fixtures.js';
+import { useLocalServer } from './_server.js';
 
-test.skip(process.env.THEWALL_TEST_RUNTIME === 'node',
-  'unified-controls uses the default wrangler webServer; skipped under THEWALL_TEST_RUNTIME=node');
+// These exercise browser-level input handling (wheel, double-click, overlays),
+// none of which is provider-specific. Running them against the local provider
+// keeps them credential-free, so they run on every `npm test` and in CI —
+// previously they targeted the keyed wrangler runtime and could only fail.
+useLocalServer();
 
 test('Mouse wheel navigation works', async ({ page, waitForLog }) => {
   await page.goto('/');

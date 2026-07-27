@@ -137,7 +137,7 @@ Scripts from [package.json](package.json):
 - `npm run dev:node` — run the Fastify server with Node 24's `--watch --env-file=.dev.vars`
 - `npm start` — run `node server.js` (used by the Dockerfile)
 - `npm run deploy` — publish to Cloudflare Workers manually via `wrangler deploy` (not needed for the Deploy button / Git-integration flow, which auto-uploads)
-- `npm test` — runs the Playwright E2E suite (defaults to the wrangler runtime; set `THEWALL_TEST_RUNTIME=node` to run the local-provider tests against Fastify)
+- `npm test` — runs the Playwright E2E suite. Works without credentials; set `THEWALL_TEST_RUNTIME=node` to additionally run the local-provider tests, and `THEWALL_PROVIDER_KEY` to run the Unsplash/Pexels integration tests
 
 Notes and links
 - See [SPEC.md](SPEC.md) for a complete specification of expected behavior and the dual-runtime architecture.

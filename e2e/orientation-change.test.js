@@ -1,23 +1,9 @@
 import { test, expect } from './_fixtures.js';
-import { startServer } from './_server.js';
-
-const ORIENTATION_BASE_URL = 'http://localhost:3100';
-let serverProcess;
+import { useServer } from './_server.js';
 
 test.skip(!process.env.THEWALL_PROVIDER_KEY, 'THEWALL_PROVIDER_KEY is required for integration test');
 
-test.beforeAll(async () => {
-  serverProcess = await startServer({
-    port: 3100,
-    env: { THEWALL_PROVIDER: 'pexels', THEWALL_IMAGE_QUERY: 'nature' },
-  });
-});
-
-test.afterAll(async () => {
-  if (serverProcess) serverProcess.kill();
-});
-
-test.use({ baseURL: ORIENTATION_BASE_URL });
+useServer({ env: { THEWALL_PROVIDER: 'pexels', THEWALL_IMAGE_QUERY: 'nature' } });
 
 test('Metadata is reloaded when orientation changes', async ({ page, waitForLog, logs }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });

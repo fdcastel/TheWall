@@ -3,20 +3,22 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * See https://playwright.dev/docs/test-configuration.
  *
- * Default webServer boots the Workers + Static Assets runtime via `wrangler
- * dev` so the production code path is exercised. Tests that need a specific
- * provider config (unsplash / pexels) or the Fastify/local-provider runtime
- * boot their own server on port 3100 from inside the test file via
- * `./_server.js`.
+ * There is no global `webServer`: every test file boots the Fastify server it
+ * needs via the `useServer`/`useLocalServer` helpers in `./_server.js`, on port
+ * 3100. `workers: 1` and `fullyParallel: false` let the files take turns on that
+ * port rather than each needing its own.
  *
- * Local-provider tests (image-content, long-filenames, appendix-sequence,
- * offline-detection, rapid-navigation) are gated on
- * `THEWALL_TEST_RUNTIME=node` because the `/api/images/*` route and filesystem
- * behaviour only exist on the Docker/Node path. When that flag is set the
- * default wrangler webServer is skipped entirely.
+ * Test tiers:
+ *   - unified-controls  — browser input handling; local provider, always runs.
+ *   - local-provider    — need the Docker/Node-only `/api/images/*` route and
+ *                         filesystem behaviour; gated on THEWALL_TEST_RUNTIME=node.
+ *   - provider          — need a real Unsplash/Pexels key; gated on
+ *                         THEWALL_PROVIDER_KEY.
+ *
+ * So `npm test` runs credential-free. The Cloudflare Workers runtime is covered
+ * by the `worker` smoke job in .github/workflows/test.yml, which exercises
+ * worker.js through `wrangler dev`.
  */
-const isNodeRuntime = process.env.THEWALL_TEST_RUNTIME === 'node';
-
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -25,7 +27,6 @@ export default defineConfig({
   workers: 1,
   reporter: 'line',
   use: {
-    baseURL: 'http://localhost:8788',
     trace: 'on-first-retry',
   },
   projects: [
@@ -34,11 +35,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  webServer: isNodeRuntime ? undefined : {
-    command: 'npx wrangler dev --port 8788',
-    url: 'http://localhost:8788/api/ping',
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
 });

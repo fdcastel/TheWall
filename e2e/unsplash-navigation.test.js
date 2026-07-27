@@ -1,23 +1,9 @@
 import { test, expect } from './_fixtures.js';
-import { startServer } from './_server.js';
-
-const UNSPLASH_BASE_URL = 'http://localhost:3100';
-let serverProcess;
+import { useServer } from './_server.js';
 
 test.skip(!process.env.THEWALL_PROVIDER_KEY, 'THEWALL_PROVIDER_KEY is required for integration test');
 
-test.beforeAll(async () => {
-  serverProcess = await startServer({
-    port: 3100,
-    env: { THEWALL_PROVIDER: 'unsplash' },
-  });
-});
-
-test.afterAll(async () => {
-  if (serverProcess) serverProcess.kill();
-});
-
-test.use({ baseURL: UNSPLASH_BASE_URL });
+useServer({ env: { THEWALL_PROVIDER: 'unsplash' } });
 
 test('Navigate through images with Unsplash provider using keypresses', async ({ page, waitForLog }) => {
   await page.goto('/');

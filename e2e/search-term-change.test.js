@@ -1,23 +1,9 @@
 import { test, expect } from './_fixtures.js';
-import { startServer } from './_server.js';
-
-const SEARCH_BASE_URL = 'http://localhost:3100';
-let serverProcess;
+import { useServer } from './_server.js';
 
 test.skip(!process.env.THEWALL_PROVIDER_KEY, 'THEWALL_PROVIDER_KEY is required for integration test');
 
-test.beforeAll(async () => {
-  serverProcess = await startServer({
-    port: 3100,
-    env: { THEWALL_PROVIDER: 'pexels', THEWALL_IMAGE_QUERY: 'mountains' },
-  });
-});
-
-test.afterAll(async () => {
-  if (serverProcess) serverProcess.kill();
-});
-
-test.use({ baseURL: SEARCH_BASE_URL });
+useServer({ env: { THEWALL_PROVIDER: 'pexels', THEWALL_IMAGE_QUERY: 'mountains' } });
 
 test('Metadata is reloaded when search term changes', async ({ page, waitForLog }) => {
   await page.goto('/');
